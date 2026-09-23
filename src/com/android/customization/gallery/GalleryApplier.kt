@@ -40,7 +40,14 @@ object GalleryApplier {
         val wallpaper = lockScreen.wallpaper
         val live = ComponentName(context, GalleryWallpaperService::class.java)
         try {
-            if (lockScreen.home == HomeStyle.PAIR) {
+            if (wallpaper.effect != 0) {
+                // An effect runs from the lock screen into the home screen, so it covers both.
+                store.setLiveWallpaper(lock = false, wallpaper = null)
+                store.setLiveWallpaper(lock = true, wallpaper = wallpaper)
+                wm.setWallpaperComponentWithFlags(
+                    ComponentName(context, GalleryEffectService::class.java),
+                    WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)
+            } else if (lockScreen.home == HomeStyle.PAIR) {
                 store.setLiveWallpaper(lock = false, wallpaper = null)
                 if (wallpaper.kind.live) {
                     store.setLiveWallpaper(lock = true, wallpaper = wallpaper)

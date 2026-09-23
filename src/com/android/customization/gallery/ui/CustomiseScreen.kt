@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.android.customization.gallery.ClockStyle
 import com.android.customization.gallery.CustomClocks
+import com.android.customization.gallery.GalleryEffect
 import com.android.customization.gallery.GalleryRenderer
 import com.android.customization.gallery.GalleryWallpaper
 import com.android.customization.gallery.GalleryWallpaper.Kind
@@ -104,6 +105,11 @@ fun CustomiseScreen(
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
+        val effect = GalleryEffect.of(wallpaper.effect)
+        val photo = wallpaper.photos.firstOrNull()
+        if (wallpaper.kind == Kind.PHOTO && effect != GalleryEffect.NONE && photo != null) {
+            EffectPreview(photo, effect, Modifier.fillMaxSize())
+        }
         val onLight = rememberTopLight(wallpaper)
         if (clock.face > 0) {
             CustomClockLayer(clock)
@@ -141,7 +147,13 @@ fun CustomiseScreen(
             Pill(stringResource(android.R.string.cancel), Color(0xCC2C2C2E), onCancel)
             Spacer(Modifier.weight(1f))
             Pill(stringResource(if (isNew) R.string.gallery_add else R.string.gallery_done),
-                ACCENT) { askHome = true }
+                ACCENT) {
+                // An effect plays from the lock screen into the home screen, so it's a pair.
+                if (wallpaper.effect != 0) {
+                    onDone(initial.copy(wallpaper = wallpaper, clock = clock,
+                        home = HomeStyle.PAIR))
+                } else askHome = true
+            }
         }
 
         Column(
@@ -269,6 +281,12 @@ private fun KindControls(wallpaper: GalleryWallpaper, onChange: (GalleryWallpape
                     }
                     Switch(wallpaper.depth, { onChange(wallpaper.copy(depth = it)) },
                         colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF30D158)))
+                }
+                Text(stringResource(R.string.gallery_effect), color = Color.White,
+                    fontSize = 16.sp, fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 20.dp))
+                Chips(GalleryEffect.entries.map { stringResource(it.label) }, wallpaper.effect) {
+                    onChange(wallpaper.copy(effect = it))
                 }
             }
             Kind.SHUFFLE -> Chips(listOf(stringResource(R.string.gallery_shuffle_tap),

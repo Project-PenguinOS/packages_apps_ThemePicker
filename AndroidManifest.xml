@@ -132,6 +132,19 @@
         </activity>
 
         <service
+            android:name="com.android.customization.gallery.GalleryEffectService"
+            android:label="@string/gallery_effects_wallpaper"
+            android:permission="android.permission.BIND_WALLPAPER"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/gallery_wallpaper" />
+        </service>
+
+        <service
             android:name="com.android.customization.gallery.GalleryWallpaperService"
             android:label="@string/gallery_live_wallpaper"
             android:permission="android.permission.BIND_WALLPAPER"

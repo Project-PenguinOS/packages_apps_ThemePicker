@@ -15,6 +15,8 @@ data class GalleryWallpaper(
     val shuffle: Shuffle = Shuffle.ON_LOCK,
     /** Whether the photo's subject is lifted above the clock (SystemUI depth wallpaper). */
     val depth: Boolean = false,
+    /** A [GalleryEffect] ordinal, for photos. */
+    val effect: Int = 0,
 ) {
     enum class Kind(val live: Boolean) {
         COLOUR(false),
@@ -45,6 +47,7 @@ data class GalleryWallpaper(
             .put("emojis", emojis)
             .put("shuffle", shuffle.name)
             .put("depth", depth)
+            .put("effect", effect)
 
     companion object {
         const val ASTRO_EARTH = 0
@@ -83,6 +86,7 @@ data class GalleryWallpaper(
                     runCatching { Shuffle.valueOf(json.optString("shuffle")) }
                         .getOrDefault(Shuffle.ON_LOCK),
                 depth = json.optBoolean("depth"),
+                effect = json.optInt("effect"),
             )
         }
     }

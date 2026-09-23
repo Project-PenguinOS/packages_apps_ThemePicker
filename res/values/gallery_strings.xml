@@ -66,6 +66,19 @@
     <string name="gallery_home_pair">Pair</string>
     <string name="gallery_home_blur">Blur</string>
     <string name="gallery_home_gradient">Gradient</string>
+    <string name="gallery_effects_wallpaper">Lock screen photo effects</string>
+    <string name="gallery_effect">Unlock effect</string>
+    <string name="gallery_effect_none">None</string>
+    <string name="gallery_effect_atmosphere">Atmosphere</string>
+    <string name="gallery_effect_atmosphere_reverse">Atmosphere reverse</string>
+    <string name="gallery_effect_glass">Glass</string>
+    <string name="gallery_effect_glass_reverse">Glass reverse</string>
+    <string name="gallery_effect_frosted">Frosted</string>
+    <string name="gallery_effect_frosted_reverse">Frosted reverse</string>
+    <string name="gallery_effect_colour_fill">Colour fill</string>
+    <string name="gallery_effect_colour_fill_reverse">Colour fill reverse</string>
+    <string name="gallery_effect_halftone">Halftone</string>
+    <string name="gallery_effect_halftone_reverse">Halftone reverse</string>
     <string name="gallery_live_wallpaper">Lock screen gallery</string>
     <string name="gallery_live_wallpaper_description">Live wallpapers from the lock screen gallery</string>
 </resources>
