@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.CUSTOMIZE_SYSTEM_UI" />
     <uses-permission android:name="android.permission.BIND_WALLPAPER"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+    <uses-permission android:name="org.omnirom.omnijaws.READ_WEATHER"/>
     <uses-permission android:name="android.permission.READ_WALLPAPER_INTERNAL"/>
     <uses-permission android:name="android.permission.SET_WALLPAPER"/>
     <uses-permission android:name="android.permission.SET_WALLPAPER_DIM_AMOUNT" />
@@ -115,5 +117,31 @@
              </intent-filter>
         </activity-alias>
 
+        <activity
+            android:name="com.android.customization.gallery.ui.LockScreenGalleryActivity"
+            android:label="@string/gallery_title"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.android.wallpaper.lockscreens">
+            <intent-filter>
+                <action android:name="com.android.wallpaper.action.LOCK_SCREENS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name="com.android.customization.gallery.GalleryWallpaperService"
+            android:label="@string/gallery_live_wallpaper"
+            android:permission="android.permission.BIND_WALLPAPER"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/gallery_wallpaper" />
+        </service>
     </application>
 </manifest>
