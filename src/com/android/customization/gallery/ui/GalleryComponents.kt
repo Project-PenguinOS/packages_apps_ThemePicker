@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.PlatformTextStyle
@@ -254,7 +255,7 @@ fun LockScreenCard(
     weather: GalleryWeather.Snapshot? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    val shape = RoundedCornerShape(corner)
+    val shape = RoundedCornerShape(corner.coerceAtLeast(0.dp))
     val onLight = rememberTopLight(wallpaper)
     BoxWithConstraints(
         modifier

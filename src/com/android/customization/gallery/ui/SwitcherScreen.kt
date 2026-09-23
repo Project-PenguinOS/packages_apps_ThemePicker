@@ -254,7 +254,7 @@ fun SwitcherScreen(
                 clock = moving.clock,
                 live = true,
                 fixedTime = false,
-                corner = 36.dp * (1 - t),
+                corner = 36.dp * (1 - t).coerceIn(0f, 1f),
                 modifier = Modifier
                     .offset { IntOffset(left.toInt(), top.toInt()) }
                     .size(with(density) { width.toDp() }, with(density) { height.toDp() }),
