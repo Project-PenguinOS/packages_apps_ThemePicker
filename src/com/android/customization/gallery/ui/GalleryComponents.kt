@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.text.format.DateFormat
-import java.io.File
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,11 +14,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,32 +32,33 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.coerceAtLeast
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.coerceAtLeast
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.android.customization.gallery.ClockStyle
 import com.android.customization.gallery.CustomClocks
 import com.android.customization.gallery.GalleryRenderer
 import com.android.customization.gallery.GalleryWallpaper
 import com.android.customization.gallery.GalleryWeather
+import java.io.File
 import java.util.Calendar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -303,7 +305,8 @@ fun dateString(): String =
 
 /** A round source button at the top of the gallery, drawn from the wallpaper it opens. */
 @Composable
-fun SourceButton(label: String, preview: GalleryWallpaper?, emoji: String?, onClick: () -> Unit) {
+fun SourceButton(label: String, preview: GalleryWallpaper?, icon: ImageVector?,
+        onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(horizontal = 6.dp).clickable(onClick = onClick),
@@ -314,7 +317,9 @@ fun SourceButton(label: String, preview: GalleryWallpaper?, emoji: String?, onCl
             contentAlignment = Alignment.Center,
         ) {
             if (preview != null) WallpaperImage(preview, Modifier.fillMaxSize())
-            if (emoji != null) Text(emoji, fontSize = 34.sp)
+            if (icon != null) {
+                Icon(icon, null, tint = Color.White, modifier = Modifier.size(32.dp))
+            }
         }
         Text(label, color = Color.White, fontSize = 14.sp,
             modifier = Modifier.padding(top = 8.dp))

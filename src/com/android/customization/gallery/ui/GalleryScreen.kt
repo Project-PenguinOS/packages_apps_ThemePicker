@@ -9,11 +9,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +28,16 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.EmojiEmotions
+import androidx.compose.material.icons.rounded.FilterVintage
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PhotoLibrary
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,7 +69,7 @@ import kotlinx.coroutines.withContext
 private val TILE_CLOCK = ClockStyle(preset = 5)
 
 private data class Tile(val wallpaper: GalleryWallpaper?, val label: String? = null,
-        val onClick: (() -> Unit)? = null, val emoji: String? = null)
+        val onClick: (() -> Unit)? = null, val icon: ImageVector? = null)
 
 /** The full-screen wallpaper gallery, in the order and style of iOS's. */
 @Composable
@@ -97,16 +108,19 @@ fun GalleryScreen(
                 LazyRow(contentPadding = PaddingValues(horizontal = 14.dp)) {
                     item {
                         SourceButton(stringResource(R.string.gallery_photos),
-                            featuredPhotos.firstOrNull(), if (featured.isEmpty()) "🖼️" else null,
+                            featuredPhotos.firstOrNull(),
+                            if (featured.isEmpty()) Icons.Rounded.PhotoLibrary else null,
                             onPickPhoto)
                     }
                     item {
-                        SourceButton(stringResource(R.string.gallery_photo_shuffle), null, "🔀",
+                        SourceButton(stringResource(R.string.gallery_photo_shuffle), null,
+                            Icons.Rounded.Shuffle,
                             onPickShuffle)
                     }
                     item {
                         SourceButton(stringResource(R.string.gallery_emoji),
-                            GalleryWallpaper(Kind.COLOUR, 1, listOf(0xFFF3D36B.toInt())), "😀") {
+                            GalleryWallpaper(Kind.COLOUR, 1, listOf(0xFFF3D36B.toInt())),
+                            Icons.Rounded.EmojiEmotions) {
                             onPick(EMOJI_PRESETS[0])
                         }
                     }
@@ -134,11 +148,11 @@ fun GalleryScreen(
                     if (store.isAdded(GalleryStore.PACK_KALEIDOSCOPE)) {
                         item {
                             SourceButton(stringResource(R.string.gallery_kaleidoscope), null,
-                                "❄️", onPickKaleidoscope)
+                                Icons.Rounded.FilterVintage, onPickKaleidoscope)
                         }
                     }
                     item {
-                        SourceButton(stringResource(R.string.gallery_live), null, "✨") {
+                        SourceButton(stringResource(R.string.gallery_live), null, Icons.Rounded.AutoAwesome) {
                             runCatching {
                                 context.startActivity(android.content.Intent(
                                     android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER))
@@ -155,11 +169,12 @@ fun GalleryScreen(
                     tiles += Tile(featuredPhotos[i], month(taken))
                 }
                 featuredShuffle?.let {
-                    tiles.add(1, Tile(it, stringResource(R.string.gallery_featured) + " ⤮"))
+                    tiles.add(1, Tile(it, stringResource(R.string.gallery_featured),
+                        icon = Icons.Rounded.Shuffle))
                 }
                 if (!hasPhotoAccess) {
                     tiles += Tile(null, stringResource(R.string.gallery_allow_photos),
-                        onRequestPhotoAccess, "🔒")
+                        onRequestPhotoAccess, Icons.Rounded.Lock)
                 }
                 Section(stringResource(R.string.gallery_featured), null, false, tiles,
                     weather, onPick)
@@ -167,7 +182,7 @@ fun GalleryScreen(
 
             item {
                 val tiles = mutableListOf(Tile(null, stringResource(R.string.gallery_choose_photos),
-                    onPickShuffle, "➕"))
+                    onPickShuffle, Icons.Rounded.Add))
                 featuredShuffle?.let { tiles += Tile(it, stringResource(R.string.gallery_featured)) }
                 Section(stringResource(R.string.gallery_photo_shuffle),
                     stringResource(R.string.gallery_photo_shuffle_summary), false, tiles, weather,
@@ -239,7 +254,7 @@ fun GalleryScreen(
             if (store.isAdded(GalleryStore.PACK_KALEIDOSCOPE)) {
                 item {
                     val tiles = mutableListOf(Tile(null,
-                        stringResource(R.string.gallery_choose_photo), onPickKaleidoscope, "➕"))
+                        stringResource(R.string.gallery_choose_photo), onPickKaleidoscope, Icons.Rounded.Add))
                     featured.take(4).forEachIndexed { i, (uri, _) ->
                         tiles += Tile(GalleryWallpaper(Kind.KALEIDOSCOPE, i % 3,
                             photos = listOf(uri)))
@@ -316,7 +331,8 @@ private fun Section(
             if (check) {
                 Box(Modifier.size(30.dp).border(2.dp, Color(0x99FFFFFF), CircleShape),
                     contentAlignment = Alignment.Center) {
-                    Text("✓", color = Color(0xCCFFFFFF), fontSize = 16.sp)
+                    Icon(Icons.Rounded.Check, null, tint = Color(0xCCFFFFFF),
+                        modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -348,13 +364,22 @@ private fun Section(
                                 .clickable { tile.onClick?.invoke() },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(tile.emoji ?: "", fontSize = 30.sp)
+                            tile.icon?.let {
+                                Icon(it, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                            }
                         }
                     }
                     if (tile.label != null) {
-                        Text(tile.label, color = Color.White, fontSize = 14.sp,
-                            textAlign = TextAlign.Center, maxLines = 2,
-                            modifier = Modifier.padding(top = 8.dp))
+                        Row(Modifier.padding(top = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            // A wallpaper tile's icon marks what it is beside its label.
+                            if (tile.wallpaper != null && tile.icon != null) {
+                                Icon(tile.icon, null, tint = Color.White,
+                                    modifier = Modifier.padding(end = 4.dp).size(16.dp))
+                            }
+                            Text(tile.label, color = Color.White, fontSize = 14.sp,
+                                textAlign = TextAlign.Center, maxLines = 2)
+                        }
                     }
                 }
             }

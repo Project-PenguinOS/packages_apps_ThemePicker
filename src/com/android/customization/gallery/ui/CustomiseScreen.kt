@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -22,14 +23,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -52,6 +56,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -168,8 +173,10 @@ fun CustomiseScreen(
                 Modifier.fillMaxWidth().padding(top = 16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                RoundAction("🕘", stringResource(R.string.gallery_clock)) { sheet = "clock" }
-                RoundAction("⚡", stringResource(R.string.gallery_shortcuts)) {
+                RoundAction(Icons.Rounded.Schedule, stringResource(R.string.gallery_clock)) {
+                    sheet = "clock"
+                }
+                RoundAction(Icons.Rounded.Bolt, stringResource(R.string.gallery_shortcuts)) {
                     sheet = "shortcuts"
                 }
             }
@@ -205,12 +212,12 @@ private fun Pill(text: String, color: Color, onClick: () -> Unit) {
 }
 
 @Composable
-private fun RoundAction(icon: String, label: String, onClick: () -> Unit) {
+private fun RoundAction(icon: ImageVector, label: String, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable(onClick = onClick)) {
         Box(Modifier.size(52.dp).clip(CircleShape).background(Color(0x993A3A3C)),
             contentAlignment = Alignment.Center) {
-            Text(icon, fontSize = 22.sp)
+            Icon(icon, null, tint = Color.White, modifier = Modifier.size(24.dp))
         }
         Text(label, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
     }
