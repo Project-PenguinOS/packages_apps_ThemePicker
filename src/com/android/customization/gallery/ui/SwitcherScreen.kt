@@ -64,7 +64,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.android.customization.gallery.GalleryRenderer
 import com.android.customization.gallery.GalleryStore
+import com.android.customization.gallery.GalleryWallpaper
 import com.android.customization.gallery.GalleryWallpaper.Kind
 import com.android.customization.gallery.LockScreen
 import com.android.themepicker.R
@@ -72,9 +74,15 @@ import kotlin.math.abs
 import kotlin.math.min
 import kotlinx.coroutines.launch
 
-fun kindLabel(kind: Kind): Int = when (kind) {
+fun wallpaperLabel(wallpaper: GalleryWallpaper): Int = when (wallpaper.kind) {
     Kind.COLOUR -> R.string.gallery_colour
-    Kind.BUBBLES, Kind.STRIPES, Kind.WAVES, Kind.PETALS -> R.string.gallery_collections
+    Kind.BUBBLES, Kind.STRIPES, Kind.WAVES -> R.string.gallery_collections
+    Kind.PETALS -> R.string.gallery_petals
+    Kind.PAPER -> if (GalleryRenderer.isCollectionPaper(wallpaper.variant)) {
+        R.string.gallery_collections
+    } else {
+        R.string.gallery_penguinos
+    }
     Kind.ASTRONOMY -> R.string.gallery_astronomy
     Kind.WEATHER -> R.string.gallery_weather
     Kind.EMOJI -> R.string.gallery_emoji
@@ -139,7 +147,7 @@ fun SwitcherScreen(
         ) {
             val shown = lockScreens.getOrNull(pager.currentPage)
             AnimatedContent(
-                targetState = shown?.let { stringResource(kindLabel(it.wallpaper.kind)) } ?: "",
+                targetState = shown?.let { stringResource(wallpaperLabel(it.wallpaper)) } ?: "",
                 transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) },
                 label = "kind",
                 modifier = Modifier.padding(top = 48.dp, bottom = 24.dp).alpha(chrome),

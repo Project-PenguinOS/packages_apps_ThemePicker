@@ -1,6 +1,5 @@
 package com.android.customization.gallery.ui
 
-import android.os.Build
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,14 +9,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -58,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.customization.gallery.ClockStyle
 import com.android.customization.gallery.GalleryRenderer
-import com.android.customization.gallery.GalleryStore
 import com.android.customization.gallery.GalleryWallpaper
 import com.android.customization.gallery.GalleryWallpaper.Kind
 import com.android.customization.gallery.GalleryWeather
@@ -74,8 +70,6 @@ private data class Tile(val wallpaper: GalleryWallpaper?, val label: String? = n
 /** The full-screen wallpaper gallery, in the order and style of iOS's. */
 @Composable
 fun GalleryScreen(
-    store: GalleryStore,
-    version: Int,
     featured: List<Pair<String, Long>>,
     hasPhotoAccess: Boolean,
     onRequestPhotoAccess: () -> Unit,
@@ -84,7 +78,6 @@ fun GalleryScreen(
     onPickPhoto: () -> Unit,
     onPickShuffle: () -> Unit,
     onPickKaleidoscope: () -> Unit,
-    onPacksChanged: () -> Unit,
 ) {
     val context = LocalContext.current
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
@@ -125,19 +118,6 @@ fun GalleryScreen(
                         }
                     }
                     item {
-                        SourceButton(stringResource(R.string.gallery_weather),
-                            GalleryWallpaper(Kind.WEATHER), null) {
-                            onPick(GalleryWallpaper(Kind.WEATHER))
-                        }
-                    }
-                    item {
-                        SourceButton(stringResource(R.string.gallery_astronomy),
-                            GalleryWallpaper(Kind.ASTRONOMY, GalleryWallpaper.ASTRO_EARTH),
-                            null) {
-                            onPick(GalleryWallpaper(Kind.ASTRONOMY, GalleryWallpaper.ASTRO_EARTH))
-                        }
-                    }
-                    item {
                         SourceButton(stringResource(R.string.gallery_colour),
                             GalleryWallpaper(Kind.COLOUR, 0, listOf(GalleryRenderer.COLOURS[1])),
                             null) {
@@ -145,11 +125,9 @@ fun GalleryScreen(
                                 listOf(GalleryRenderer.COLOURS[1])))
                         }
                     }
-                    if (store.isAdded(GalleryStore.PACK_KALEIDOSCOPE)) {
-                        item {
-                            SourceButton(stringResource(R.string.gallery_kaleidoscope), null,
-                                Icons.Rounded.FilterVintage, onPickKaleidoscope)
-                        }
+                    item {
+                        SourceButton(stringResource(R.string.gallery_kaleidoscope), null,
+                            Icons.Rounded.FilterVintage, onPickKaleidoscope)
                     }
                     item {
                         SourceButton(stringResource(R.string.gallery_live), null, Icons.Rounded.AutoAwesome) {
@@ -163,7 +141,7 @@ fun GalleryScreen(
             }
 
             item {
-                val tiles = mutableListOf(Tile(GalleryWallpaper(Kind.BUBBLES),
+                val tiles = mutableListOf(Tile(GalleryWallpaper(Kind.PAPER),
                     stringResource(R.string.gallery_collections)))
                 featured.forEachIndexed { i, (_, taken) ->
                     tiles += Tile(featuredPhotos[i], month(taken))
@@ -190,30 +168,17 @@ fun GalleryScreen(
             }
 
             item {
-                Section(stringResource(R.string.gallery_weather),
-                    stringResource(R.string.gallery_weather_summary), true,
-                    listOf(Tile(GalleryWallpaper(Kind.WEATHER))), weather, onPick)
-            }
-
-            item {
-                Section(stringResource(R.string.gallery_astronomy),
-                    stringResource(R.string.gallery_astronomy_summary), true,
-                    listOf(GalleryWallpaper.ASTRO_EARTH, GalleryWallpaper.ASTRO_EARTH_DETAIL,
-                        GalleryWallpaper.ASTRO_MOON, GalleryWallpaper.ASTRO_MOON_DETAIL,
-                        GalleryWallpaper.ASTRO_SOLAR, GalleryWallpaper.ASTRO_MARS).map {
-                        Tile(GalleryWallpaper(Kind.ASTRONOMY, it))
-                    }, weather, onPick)
-            }
-
-            item {
-                val tiles = (0 until GalleryRenderer.BUBBLE_VARIANTS).map {
-                    Tile(GalleryWallpaper(Kind.BUBBLES, it))
-                } + (0 until GalleryRenderer.STRIPE_VARIANTS).map {
-                    Tile(GalleryWallpaper(Kind.STRIPES, it))
-                } + (0 until GalleryRenderer.WAVE_VARIANTS).map {
-                    Tile(GalleryWallpaper(Kind.WAVES, it))
+                val tiles = (0 until GalleryRenderer.PAPER_COLLECTIONS).map {
+                    Tile(GalleryWallpaper(Kind.PAPER, it))
                 }
                 Section(stringResource(R.string.gallery_collections), null, true, tiles, weather,
+                    onPick)
+            }
+
+            item {
+                val tiles = (GalleryRenderer.PAPER_COLLECTIONS until GalleryRenderer.PAPERS.size)
+                    .map { Tile(GalleryWallpaper(Kind.PAPER, it)) }
+                Section(stringResource(R.string.gallery_penguinos), null, true, tiles, weather,
                     onPick)
             }
 
@@ -237,40 +202,28 @@ fun GalleryScreen(
             }
 
             item {
-                val device = remember { deviceName(context) }
-                Section(device, stringResource(R.string.gallery_device_summary, device),
+                Section(stringResource(R.string.gallery_petals), null,
                     false, (0 until GalleryRenderer.PETAL_VARIANTS).map {
                         Tile(GalleryWallpaper(Kind.PETALS, it))
                     }, weather, onPick)
             }
 
-            if (store.isAdded(GalleryStore.PACK_EMOJI)) {
-                item {
-                    Section(stringResource(R.string.gallery_emoji),
-                        stringResource(R.string.gallery_emoji_summary), true,
-                        EMOJI_PRESETS.map { Tile(it) }, weather, onPick)
-                }
+            item {
+                Section(stringResource(R.string.gallery_emoji),
+                    stringResource(R.string.gallery_emoji_summary), true,
+                    EMOJI_PRESETS.map { Tile(it) }, weather, onPick)
             }
-            if (store.isAdded(GalleryStore.PACK_KALEIDOSCOPE)) {
-                item {
-                    val tiles = mutableListOf(Tile(null,
-                        stringResource(R.string.gallery_choose_photo), onPickKaleidoscope, Icons.Rounded.Add))
-                    featured.take(4).forEachIndexed { i, (uri, _) ->
-                        tiles += Tile(GalleryWallpaper(Kind.KALEIDOSCOPE, i % 3,
-                            photos = listOf(uri)))
-                    }
-                    Section(stringResource(R.string.gallery_kaleidoscope),
-                        stringResource(R.string.gallery_kaleidoscope_summary), true, tiles,
-                        weather, onPick)
+            item {
+                val tiles = mutableListOf(Tile(null,
+                    stringResource(R.string.gallery_choose_photo), onPickKaleidoscope,
+                    Icons.Rounded.Add))
+                featured.take(4).forEachIndexed { i, (uri, _) ->
+                    tiles += Tile(GalleryWallpaper(Kind.KALEIDOSCOPE, i % 3,
+                        photos = listOf(uri)))
                 }
-            }
-            PACKS.filterNot { store.isAdded(it.id) }.forEach { pack ->
-                item(key = "pack-${pack.id}-$version") {
-                    PackCard(pack) {
-                        store.setAdded(pack.id, true)
-                        onPacksChanged()
-                    }
-                }
+                Section(stringResource(R.string.gallery_kaleidoscope),
+                    stringResource(R.string.gallery_kaleidoscope_summary), true, tiles,
+                    weather, onPick)
             }
         }
 
@@ -286,10 +239,6 @@ fun GalleryScreen(
     }
 }
 
-private fun deviceName(context: android.content.Context): String =
-    android.provider.Settings.Global.getString(context.contentResolver,
-        android.provider.Settings.Global.DEVICE_NAME) ?: Build.MODEL
-
 val EMOJI_PRESETS = listOf(
     GalleryWallpaper(Kind.EMOJI, GalleryWallpaper.EMOJI_SMALL, listOf(0xFFBFE3F2.toInt()),
         emojis = "🐝☁️"),
@@ -301,17 +250,6 @@ val EMOJI_PRESETS = listOf(
         emojis = "😀🥳😎"),
     GalleryWallpaper(Kind.EMOJI, GalleryWallpaper.EMOJI_SPIRAL, listOf(0xFF2B2B2B.toInt()),
         emojis = "🍕🍩🍟"),
-)
-
-private data class Pack(val id: String, val title: Int, val summary: Int,
-        val previews: List<GalleryWallpaper>)
-
-private val PACKS = listOf(
-    Pack(GalleryStore.PACK_EMOJI, R.string.gallery_emoji, R.string.gallery_emoji_summary,
-        EMOJI_PRESETS.take(3)),
-    Pack(GalleryStore.PACK_KALEIDOSCOPE, R.string.gallery_kaleidoscope,
-        R.string.gallery_kaleidoscope_summary,
-        listOf(GalleryWallpaper(Kind.KALEIDOSCOPE, 0), GalleryWallpaper(Kind.KALEIDOSCOPE, 2))),
 )
 
 @Composable
@@ -382,39 +320,6 @@ private fun Section(
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PackCard(pack: Pack, onGet: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 32.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(128.dp).height(200.dp)) {
-            pack.previews.reversed().forEachIndexed { i, wallpaper ->
-                val back = pack.previews.size - 1 - i
-                WallpaperImage(
-                    wallpaper,
-                    Modifier.offset(x = (back * 12).dp).width(100.dp).height(200.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp)),
-                )
-            }
-        }
-        Spacer(Modifier.width(16.dp))
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(pack.title), color = Color.White, fontSize = 26.sp,
-                fontWeight = FontWeight.Bold)
-            Text(stringResource(pack.summary), color = Color(0xB3FFFFFF), fontSize = 16.sp,
-                modifier = Modifier.padding(top = 6.dp))
-            Box(
-                Modifier.padding(top = 14.dp).clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFF3A3A3C)).clickable(onClick = onGet)
-                    .padding(horizontal = 28.dp, vertical = 8.dp),
-            ) {
-                Text(stringResource(R.string.gallery_get), color = Color.White, fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold)
             }
         }
     }

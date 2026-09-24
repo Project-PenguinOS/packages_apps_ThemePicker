@@ -30,6 +30,8 @@ data class GalleryWallpaper(
         KALEIDOSCOPE(false),
         PHOTO(false),
         SHUFFLE(true),
+        /** Bundled images: [GalleryRenderer.PAPERS]. */
+        PAPER(false),
     }
 
     enum class Shuffle { ON_TAP, ON_LOCK, HOURLY, DAILY }

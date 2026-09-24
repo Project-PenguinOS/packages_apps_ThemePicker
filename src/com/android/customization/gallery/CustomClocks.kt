@@ -33,8 +33,18 @@ object CustomClocks {
     private const val KEY_MARGIN_TOP = "lock_screen_custom_clock_margin_top"
     private const val KEY_OPACITY = "lock_screen_custom_clock_opacity"
     private const val KEY_HIDE_AOSP_CLOCK = "ls_clock_hide"
+    private const val KEY_MARGIN_START = "lock_screen_custom_clock_margin_start"
+    private const val KEY_GRADIENT = "lock_screen_custom_clock_gradient_enabled"
+    private const val KEY_GRADIENT_START = "lock_screen_custom_clock_gradient_color_start"
+    private const val KEY_GRADIENT_END = "lock_screen_custom_clock_gradient_color_end"
+    private const val KEY_GRADIENT_ANCHOR_Y = "lock_screen_custom_clock_gradient_anchor_y"
+    private const val KEY_GRADIENT_RADIUS = "lock_screen_custom_clock_gradient_radius"
+    private const val KEY_ALBUM_ART_COLOR = "lock_screen_custom_clock_album_art_color"
+    private const val KEY_AOD_ANIM = "lock_screen_custom_clock_aod_anim"
+    private const val KEY_WOBBLE = "lock_screen_custom_clock_wobble_on_charge"
+    private const val KEY_WEATHER = "custom_clock_weather"
+    private const val COLOR_MODE_ACCENT = "accent"
     private const val PREVIEW_SHADOW = 0x59000000
-    private const val HYPER_CLOCK = "com.android.systemui.clocks.HyperClockView"
     private const val ACTION_RESTART = "com.android.systemui.action.RESTART_FOR_CLOCK_STYLE"
 
     /** Styles whose colours SystemUI never changes. */
@@ -50,6 +60,67 @@ object CustomClocks {
 
     /** Where SystemUI puts the clock, in pixels of the real screen. */
     class Frame(val top: Int, val side: Int, val width: Int, val scale: Float, val alpha: Float)
+
+    /** How SystemUI sizes, places and colours a custom style; Settings' clock options. */
+    data class Tuning(
+        val scale: Int = 100,
+        val opacity: Int = 100,
+        val marginTop: Int = 15,
+        val marginStart: Int = 0,
+        val accent: Boolean = false,
+        val gradient: Boolean = false,
+        val gradientStart: Int = 0xFF00E5FF.toInt(),
+        val gradientEnd: Int = 0xFFFF2DAA.toInt(),
+        val gradientAnchorY: Int = 50,
+        val gradientRadius: Int = 100,
+        val albumArtColour: Boolean = false,
+        val aodAnimation: Boolean = true,
+        val wobbleOnCharge: Boolean = true,
+        val weather: Boolean = true,
+    ) {
+        companion object {
+            fun load(context: Context): Tuning {
+                val cr = context.contentResolver
+                fun int(key: String, default: Int) = Settings.Secure.getInt(cr, key, default)
+                val d = Tuning()
+                return Tuning(
+                    scale = int(KEY_SIZE, d.scale),
+                    opacity = int(KEY_OPACITY, d.opacity),
+                    marginTop = int(KEY_MARGIN_TOP, d.marginTop),
+                    marginStart = int(KEY_MARGIN_START, d.marginStart),
+                    accent = Settings.Secure.getString(cr, KEY_COLOR_MODE) == COLOR_MODE_ACCENT,
+                    gradient = int(KEY_GRADIENT, 0) != 0,
+                    gradientStart = int(KEY_GRADIENT_START, d.gradientStart),
+                    gradientEnd = int(KEY_GRADIENT_END, d.gradientEnd),
+                    gradientAnchorY = int(KEY_GRADIENT_ANCHOR_Y, d.gradientAnchorY),
+                    gradientRadius = int(KEY_GRADIENT_RADIUS, d.gradientRadius),
+                    albumArtColour = int(KEY_ALBUM_ART_COLOR, 0) != 0,
+                    aodAnimation = int(KEY_AOD_ANIM, 1) != 0,
+                    wobbleOnCharge = int(KEY_WOBBLE, 1) != 0,
+                    weather = int(KEY_WEATHER, 1) != 0,
+                )
+            }
+        }
+
+        fun save(context: Context) {
+            val cr = context.contentResolver
+            fun put(key: String, value: Int) = Settings.Secure.putInt(cr, key, value)
+            fun put(key: String, value: Boolean) = put(key, if (value) 1 else 0)
+            put(KEY_SIZE, scale)
+            put(KEY_OPACITY, opacity)
+            put(KEY_MARGIN_TOP, marginTop)
+            put(KEY_MARGIN_START, marginStart)
+            put(KEY_GRADIENT, gradient)
+            put(KEY_GRADIENT_START, gradientStart)
+            put(KEY_GRADIENT_END, gradientEnd)
+            put(KEY_GRADIENT_ANCHOR_Y, gradientAnchorY)
+            put(KEY_GRADIENT_RADIUS, gradientRadius)
+            put(KEY_ALBUM_ART_COLOR, albumArtColour)
+            put(KEY_AOD_ANIM, aodAnimation)
+            put(KEY_WOBBLE, wobbleOnCharge)
+            put(KEY_WEATHER, weather)
+        }
+    }
 
     @Volatile private var catalogue: Catalogue? = null
     private val previews = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
@@ -96,8 +167,7 @@ object CustomClocks {
 
     fun isColourable(style: Int) = style !in NO_COLOR
 
-    fun frame(context: Context): Frame {
-        val resolver = context.contentResolver
+    fun frame(context: Context, tuning: Tuning = Tuning.load(context)): Frame {
         val density = context.resources.displayMetrics.density
         val screen = context.resources.displayMetrics.widthPixels
         val res = load(context)?.systemUi?.resources
@@ -107,13 +177,12 @@ object CustomClocks {
         }
         val statusBar = dimen("status_bar_height", 28f)
         val side = dimen("below_clock_padding_start", 32f)
-        val marginTop = Settings.Secure.getInt(resolver, KEY_MARGIN_TOP, 15) * density
         return Frame(
-            top = (statusBar * 1.25f + marginTop).toInt(),
-            side = side,
+            top = (statusBar * 1.25f + tuning.marginTop * density).toInt(),
+            side = side + (tuning.marginStart * density).toInt(),
             width = screen - side * 2,
-            scale = Settings.Secure.getInt(resolver, KEY_SIZE, 100).coerceIn(50, 150) / 100f,
-            alpha = Settings.Secure.getInt(resolver, KEY_OPACITY, 100).coerceIn(0, 100) / 100f,
+            scale = tuning.scale.coerceIn(50, 150) / 100f,
+            alpha = tuning.opacity.coerceIn(0, 100) / 100f,
         )
     }
 
@@ -193,17 +262,6 @@ object CustomClocks {
             // white clocks vanish on light wallpapers without this.
             view.setShadowLayer(view.textSize * 0.08f, 0f, view.textSize * 0.02f, PREVIEW_SHADOW)
         }
-        if (color != null && (color and 0xFFFFFF) != 0xFFFFFF &&
-                view.javaClass.name == HYPER_CLOCK) {
-            // SystemUI's shrinker may have inlined these; the clock then stays white.
-            for ((name, arg) in listOf("setColonFollowsDigits" to true, "setDigitColor" to color)) {
-                runCatching {
-                    view.javaClass.getMethod(name,
-                        if (arg is Boolean) Boolean::class.java else Int::class.java)
-                        .invoke(view, arg)
-                }
-            }
-        }
         if (view is ViewGroup) {
             view.clipChildren = false
             for (i in 0 until view.childCount) prepare(view.getChildAt(i), color)
@@ -235,15 +293,24 @@ object CustomClocks {
      * Applies [style] as Settings would. Switching between the default clock and a custom one
      * needs SystemUI to restart, as parts of the keyguard only read it at startup.
      */
-    fun apply(context: Context, style: Int, color: Int?) {
+    fun apply(context: Context, style: Int, color: Int?, tuning: Tuning? = null) {
         val resolver = context.contentResolver
         val before = Settings.Secure.getInt(resolver, KEY_STYLE, 0)
         Settings.Secure.putInt(resolver, KEY_STYLE, style)
         Settings.System.putInt(resolver, KEY_HIDE_AOSP_CLOCK, if (style != 0) 1 else 0)
         if (style != 0) {
-            Settings.Secure.putString(resolver, KEY_COLOR_MODE,
-                if (color != null) "custom" else "default")
+            // Without new tuning, e.g. from the switcher, the current accent or gradient stays.
+            val current = tuning ?: Tuning.load(context)
+            // As Settings does: a gradient is drawn in the custom colour mode.
+            val mode = when {
+                current.gradient -> "custom"
+                current.accent -> COLOR_MODE_ACCENT
+                color != null -> "custom"
+                else -> "default"
+            }
+            Settings.Secure.putString(resolver, KEY_COLOR_MODE, mode)
             if (color != null) Settings.Secure.putInt(resolver, KEY_CUSTOM_COLOR, color)
+            tuning?.save(context)
         }
         if ((before == 0) != (style == 0)) {
             context.sendBroadcast(Intent(ACTION_RESTART).setPackage(SYSTEMUI))

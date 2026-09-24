@@ -19,6 +19,7 @@ import android.graphics.Shader
 import android.text.TextPaint
 import android.util.LruCache
 import com.android.customization.gallery.GalleryWallpaper.Kind
+import com.android.themepicker.R
 import java.text.BreakIterator
 import java.util.Calendar
 import kotlin.math.PI
@@ -55,6 +56,7 @@ object GalleryRenderer {
             Kind.KALEIDOSCOPE -> kaleidoscope(context, canvas, wallpaper, w, h).let { false }
             Kind.PHOTO -> photo(context, canvas, wallpaper.photos.firstOrNull(), wallpaper.variant,
                 w, h).let { false }
+            Kind.PAPER -> paper(context, canvas, wallpaper.variant, w, h).let { false }
             Kind.SHUFFLE -> {
                 val photos = wallpaper.photos
                 photo(context, canvas, photos.getOrNull(Math.floorMod(shuffleIndex,
@@ -318,6 +320,41 @@ object GalleryRenderer {
 
     private val photoCache = object : LruCache<String, Bitmap>(64 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
+    }
+
+    /** The bundled wallpapers: the PenguinOS Collections, then the PenguinOS walls. */
+    val PAPERS = intArrayOf(
+        R.drawable.gallery_paper_0, R.drawable.gallery_paper_1, R.drawable.gallery_paper_2,
+        R.drawable.gallery_paper_3, R.drawable.gallery_paper_4, R.drawable.gallery_paper_5,
+        R.drawable.gallery_paper_6,
+    )
+    const val PAPER_COLLECTIONS = 3
+
+    /** Whether a [Kind.PAPER] variant is one of the Collections, rather than a PenguinOS wall. */
+    fun isCollectionPaper(variant: Int) = variant < PAPER_COLLECTIONS
+
+    private fun paper(context: Context, canvas: Canvas, variant: Int, w: Float, h: Float) {
+        val bitmap = loadPaper(context, Math.floorMod(variant, PAPERS.size), max(w, h).toInt())
+        if (bitmap == null) {
+            canvas.drawColor(0xFF202124.toInt())
+            return
+        }
+        drawCentreCrop(canvas, bitmap, w, h, Paint(Paint.FILTER_BITMAP_FLAG))
+    }
+
+    private fun loadPaper(context: Context, index: Int, maxSide: Int): Bitmap? {
+        val key = "paper:$index@$maxSide"
+        photoCache.get(key)?.let { return it }
+        val res = context.resources
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeResource(res, PAPERS[index], bounds)
+        if (bounds.outWidth <= 0) return null
+        var sample = 1
+        while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxSide) sample *= 2
+        val bitmap = BitmapFactory.decodeResource(res, PAPERS[index],
+            BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+        photoCache.put(key, bitmap)
+        return bitmap
     }
 
     /** [path] is a file of ours, or a content URI for photos not imported yet. */

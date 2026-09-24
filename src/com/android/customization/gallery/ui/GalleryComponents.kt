@@ -208,12 +208,24 @@ fun LockClock(
  * shrunk with the preview, so cards, customising and the lock screen all match.
  */
 @Composable
-fun CustomClockLayer(style: ClockStyle, modifier: Modifier = Modifier) {
+fun CustomClockLayer(
+    style: ClockStyle,
+    modifier: Modifier = Modifier,
+    tuning: CustomClocks.Tuning? = null,
+) {
     val context = LocalContext.current
-    val frame = remember { CustomClocks.frame(context) }
-    val preview by produceState<Bitmap?>(null, style.face, style.color) {
+    val frame = remember(tuning) {
+        if (tuning != null) CustomClocks.frame(context, tuning) else CustomClocks.frame(context)
+    }
+    // Accent and gradient clocks are previewed in their accent and first gradient colour.
+    val color = when {
+        tuning?.gradient == true -> tuning.gradientStart
+        tuning?.accent == true -> context.getColor(android.R.color.system_accent1_100)
+        else -> style.color
+    }
+    val preview by produceState<Bitmap?>(null, style.face, color, frame.width) {
         value = withContext(Dispatchers.Default) {
-            CustomClocks.preview(context, style.face, frame.width, style.color)
+            CustomClocks.preview(context, style.face, frame.width, color)
         }
     }
     BoxWithConstraints(modifier.fillMaxSize()) {

@@ -174,8 +174,6 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
                             },
                         )
                         Screen.Gallery -> GalleryScreen(
-                            store = store,
-                            version = version,
                             featured = remember(version) { featuredPhotos() },
                             hasPhotoAccess = hasPhotoAccess(),
                             onRequestPhotoAccess = {
@@ -210,7 +208,6 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
                                 pickKaleidoscope.launch(PickVisualMediaRequest(
                                     ActivityResultContracts.PickVisualMedia.ImageOnly))
                             },
-                            onPacksChanged = { version++ },
                         )
                         is Screen.Customise -> CustomiseScreen(
                             initial = current.lockScreen,
@@ -220,10 +217,10 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
                                 screen = if (current.isNew) Screen.Gallery
                                 else Screen.Switcher(zoomIn = true)
                             },
-                            onDone = { lockScreen ->
+                            onDone = { lockScreen, tuning ->
                                 store.save(lockScreen)
                                 version++
-                                apply(lockScreen)
+                                apply(lockScreen, tuning)
                             },
                         )
                     }
@@ -264,21 +261,21 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
         return photos
     }
 
-    private fun apply(lockScreen: LockScreen) {
+    private fun apply(lockScreen: LockScreen, tuning: CustomClocks.Tuning? = null) {
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
                 GalleryApplier.apply(this@LockScreenGalleryActivity, lockScreen)
             }
-            applyClock(lockScreen.clock)
+            applyClock(lockScreen.clock, tuning)
             finish()
         }
     }
 
-    private suspend fun applyClock(style: ClockStyle) {
+    private suspend fun applyClock(style: ClockStyle, tuning: CustomClocks.Tuning?) {
         if (style.face == 0) applyStockClock(style)
         withContext(Dispatchers.IO) {
             runCatching { CustomClocks.apply(this@LockScreenGalleryActivity, style.face,
-                style.color) }
+                style.color, tuning) }
         }
     }
 

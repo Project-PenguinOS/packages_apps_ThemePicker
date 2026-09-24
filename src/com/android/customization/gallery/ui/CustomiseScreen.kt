@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,12 +30,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -57,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -77,6 +82,7 @@ import com.android.customization.gallery.HomeStyle
 import com.android.customization.gallery.LockScreen
 import com.android.customization.picker.quickaffordance.domain.interactor.KeyguardQuickAffordancePickerInteractor
 import com.android.themepicker.R
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -93,11 +99,12 @@ fun CustomiseScreen(
     isNew: Boolean,
     affordanceInteractor: KeyguardQuickAffordancePickerInteractor,
     onCancel: () -> Unit,
-    onDone: (LockScreen) -> Unit,
+    onDone: (LockScreen, CustomClocks.Tuning) -> Unit,
 ) {
     val context = LocalContext.current
     var wallpaper by remember { mutableStateOf(initial.wallpaper) }
     var clock by remember { mutableStateOf(initial.clock) }
+    var tuning by remember { mutableStateOf(CustomClocks.Tuning.load(context)) }
     var sheet by remember { mutableStateOf<String?>(null) }
     var askHome by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
@@ -117,7 +124,7 @@ fun CustomiseScreen(
         }
         val onLight = rememberTopLight(wallpaper)
         if (clock.face > 0) {
-            CustomClockLayer(clock)
+            CustomClockLayer(clock, tuning = tuning)
             // The clock area stays tappable, as iOS lets you tap the clock to edit it.
             Box(Modifier.fillMaxWidth().fillMaxHeight(0.3f).clickable { sheet = "clock" })
         } else BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -156,7 +163,7 @@ fun CustomiseScreen(
                 // An effect plays from the lock screen into the home screen, so it's a pair.
                 if (wallpaper.effect != 0) {
                     onDone(initial.copy(wallpaper = wallpaper, clock = clock,
-                        home = HomeStyle.PAIR))
+                        home = HomeStyle.PAIR), tuning)
                 } else askHome = true
             }
         }
@@ -185,7 +192,7 @@ fun CustomiseScreen(
 
     if (sheet == "clock") {
         ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = Color(0xFF1C1C1E)) {
-            ClockSheet(clock) { clock = it }
+            ClockSheet(clock, tuning, { clock = it }, { tuning = it })
         }
     }
     if (sheet == "shortcuts") {
@@ -196,7 +203,7 @@ fun CustomiseScreen(
     if (askHome) {
         HomeDialog(wallpaper, onDismiss = { askHome = false }) { home ->
             askHome = false
-            onDone(initial.copy(wallpaper = wallpaper, clock = clock, home = home))
+            onDone(initial.copy(wallpaper = wallpaper, clock = clock, home = home), tuning)
         }
     }
 }
@@ -287,7 +294,7 @@ private fun KindControls(wallpaper: GalleryWallpaper, onChange: (GalleryWallpape
                             color = Color(0xB3FFFFFF), fontSize = 13.sp)
                     }
                     Switch(wallpaper.depth, { onChange(wallpaper.copy(depth = it)) },
-                        colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF30D158)))
+                        colors = switchColors())
                 }
                 Text(stringResource(R.string.gallery_effect), color = Color.White,
                     fontSize = 16.sp, fontWeight = FontWeight.Medium,
@@ -382,17 +389,46 @@ private fun KindControls(wallpaper: GalleryWallpaper, onChange: (GalleryWallpape
                 }
             }
             Kind.WEATHER -> {}
+            Kind.PAPER -> {
+                // Choose among the wallpaper's own set: the Collections or the PenguinOS walls.
+                val collection = GalleryRenderer.isCollectionPaper(wallpaper.variant)
+                val variants =
+                    if (collection) 0 until GalleryRenderer.PAPER_COLLECTIONS
+                    else GalleryRenderer.PAPER_COLLECTIONS until GalleryRenderer.PAPERS.size
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    variants.forEach { i ->
+                        Box(
+                            Modifier.padding(horizontal = 6.dp).width(44.dp).aspectRatio(0.5f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(if (i == wallpaper.variant) 2.dp else 1.dp,
+                                    if (i == wallpaper.variant) Color.White else Color(0x55FFFFFF),
+                                    RoundedCornerShape(10.dp))
+                                .clickable { onChange(wallpaper.copy(variant = i)) },
+                        ) {
+                            WallpaperImage(wallpaper.copy(variant = i), Modifier.fillMaxSize())
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun ClockSheet(clock: ClockStyle, onChange: (ClockStyle) -> Unit) {
+private fun ClockSheet(
+    clock: ClockStyle,
+    tuning: CustomClocks.Tuning,
+    onChange: (ClockStyle) -> Unit,
+    onTuning: (CustomClocks.Tuning) -> Unit,
+) {
     val context = LocalContext.current
     val styles by produceState(emptyList<String>()) {
         value = withContext(Dispatchers.IO) { CustomClocks.names(context) }
     }
-    Column(Modifier.fillMaxWidth().padding(bottom = 32.dp),
+    // Kept to half the screen and scrolled inside, so the clock preview above stays in view.
+    val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.5f).dp
+    Column(Modifier.fillMaxWidth().heightIn(max = maxHeight)
+        .verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (styles.size > 1) {
             Text(stringResource(R.string.gallery_clock_style), color = Color.White,
@@ -457,7 +493,7 @@ private fun ClockSheet(clock: ClockStyle, onChange: (ClockStyle) -> Unit) {
                 Text(stringResource(R.string.gallery_clock_rounded), color = Color.White,
                     fontSize = 16.sp, modifier = Modifier.weight(1f))
                 Switch(clock.rounded, { onChange(clock.copy(rounded = it)) },
-                    colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF30D158)))
+                    colors = switchColors())
             }
         }
         // Some custom styles keep their own colours on the lock screen.
@@ -465,7 +501,63 @@ private fun ClockSheet(clock: ClockStyle, onChange: (ClockStyle) -> Unit) {
             Text(stringResource(R.string.gallery_clock_colour), color = Color.White,
                 fontSize = 20.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp))
-            Swatches(CLOCK_COLOURS, clock.color) { onChange(clock.copy(color = it)) }
+            if (clock.face > 0) {
+                val mode = when {
+                    tuning.gradient -> 2
+                    tuning.accent -> 1
+                    else -> 0
+                }
+                Chips(listOf(stringResource(R.string.gallery_clock_colour_custom),
+                    stringResource(R.string.gallery_clock_colour_accent),
+                    stringResource(R.string.gallery_clock_colour_gradient)), mode) {
+                    onTuning(tuning.copy(accent = it == 1, gradient = it == 2))
+                }
+            }
+            if (clock.face == 0 || (!tuning.accent && !tuning.gradient)) {
+                Swatches(CLOCK_COLOURS, clock.color) { onChange(clock.copy(color = it)) }
+            }
+            if (clock.face > 0 && tuning.gradient) {
+                SheetLabel(stringResource(R.string.gallery_clock_gradient_start))
+                Swatches(GRADIENT_COLOURS, tuning.gradientStart) {
+                    onTuning(tuning.copy(gradientStart = it ?: tuning.gradientStart))
+                }
+                SheetLabel(stringResource(R.string.gallery_clock_gradient_end))
+                Swatches(GRADIENT_COLOURS, tuning.gradientEnd) {
+                    onTuning(tuning.copy(gradientEnd = it ?: tuning.gradientEnd))
+                }
+                TuningSlider(stringResource(R.string.gallery_clock_gradient_position),
+                    tuning.gradientAnchorY, 0..100, "%") {
+                    onTuning(tuning.copy(gradientAnchorY = it))
+                }
+                TuningSlider(stringResource(R.string.gallery_clock_gradient_spread),
+                    tuning.gradientRadius, 25..200, "%") {
+                    onTuning(tuning.copy(gradientRadius = it))
+                }
+            }
+        }
+        if (clock.face > 0) {
+            Text(stringResource(R.string.gallery_clock_adjust), color = Color.White,
+                fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 20.dp))
+            TuningSlider(stringResource(R.string.gallery_clock_size), tuning.scale, 50..150, "%") {
+                onTuning(tuning.copy(scale = it))
+            }
+            TuningSlider(stringResource(R.string.gallery_clock_opacity), tuning.opacity, 0..100,
+                "%") { onTuning(tuning.copy(opacity = it)) }
+            TuningSlider(stringResource(R.string.gallery_clock_margin_top), tuning.marginTop,
+                0..100, " dp") { onTuning(tuning.copy(marginTop = it)) }
+            TuningSlider(stringResource(R.string.gallery_clock_margin_start), tuning.marginStart,
+                -100..100, " dp") { onTuning(tuning.copy(marginStart = it)) }
+            TuningSwitch(stringResource(R.string.gallery_clock_album_art),
+                tuning.albumArtColour) { onTuning(tuning.copy(albumArtColour = it)) }
+            TuningSwitch(stringResource(R.string.gallery_clock_aod_animation),
+                tuning.aodAnimation) { onTuning(tuning.copy(aodAnimation = it)) }
+            TuningSwitch(stringResource(R.string.gallery_clock_wobble), tuning.wobbleOnCharge) {
+                onTuning(tuning.copy(wobbleOnCharge = it))
+            }
+            TuningSwitch(stringResource(R.string.gallery_clock_weather), tuning.weather) {
+                onTuning(tuning.copy(weather = it))
+            }
         }
         if (clock.face == 0) {
             Chips(listOf(stringResource(R.string.gallery_clock_large),
@@ -473,6 +565,59 @@ private fun ClockSheet(clock: ClockStyle, onChange: (ClockStyle) -> Unit) {
                 onChange(clock.copy(small = it == 1))
             }
         }
+    }
+}
+
+private val GRADIENT_COLOURS = listOf(0xFF00E5FF.toInt(), 0xFFFF2DAA.toInt(),
+    0xFFFFD60A.toInt(), 0xFFFF9F0A.toInt(), 0xFF30D158.toInt(), 0xFFBF5AF2.toInt(),
+    0xFF0A84FF.toInt(), 0xFFFFFFFF.toInt())
+
+@Composable
+private fun switchColors() = SwitchDefaults.colors(
+    checkedThumbColor = Color.White,
+    checkedTrackColor = ACCENT,
+    checkedBorderColor = ACCENT,
+    uncheckedThumbColor = Color(0xFFAEAEB2),
+    uncheckedTrackColor = Color(0xFF3A3A3C),
+    uncheckedBorderColor = Color(0xFF3A3A3C),
+)
+
+@Composable
+private fun SheetLabel(text: String) {
+    Text(text, color = Color(0xB3FFFFFF), fontSize = 14.sp,
+        modifier = Modifier.padding(horizontal = 20.dp))
+}
+
+@Composable
+private fun TuningSlider(
+    label: String,
+    value: Int,
+    range: IntRange,
+    unit: String,
+    onChange: (Int) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
+            Text("$value$unit", color = Color(0xB3FFFFFF), fontSize = 14.sp)
+        }
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onChange(it.roundToInt()) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            colors = SliderDefaults.colors(thumbColor = Color.White,
+                activeTrackColor = ACCENT, inactiveTrackColor = Color(0xFF3A3A3C)),
+        )
+    }
+}
+
+@Composable
+private fun TuningSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
+        Switch(checked, onChange,
+            colors = switchColors())
     }
 }
 
