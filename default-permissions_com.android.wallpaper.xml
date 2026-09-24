@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+     SPDX-FileCopyrightText: 2026 PenguinOS
+     SPDX-License-Identifier: Apache-2.0
+-->
+<exceptions>
+    <exception package="com.android.wallpaper">
+        <!-- The depth wallpaper's subject, for the lock screen effects. -->
+        <permission name="android.permission.READ_EXTERNAL_STORAGE" fixed="true" />
+    </exception>
+</exceptions>

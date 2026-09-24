@@ -111,7 +111,10 @@ java_defaults {
         "librenderscript-toolkit",
     ],
 
-    required: ["android.software.theme_picker.xml"],
+    required: [
+        "android.software.theme_picker.xml",
+        "default-permissions_com.android.wallpaper",
+    ],
 
     use_embedded_native_libs: true,
 
@@ -138,6 +141,14 @@ prebuilt_etc {
     system_ext_specific: true,
     sub_dir: "permissions",
     src: "android.software.theme_picker.xml",
+}
+
+prebuilt_etc {
+    name: "default-permissions_com.android.wallpaper",
+    system_ext_specific: true,
+    sub_dir: "default-permissions",
+    src: "default-permissions_com.android.wallpaper.xml",
+    filename_from_src: true,
 }
 
 //

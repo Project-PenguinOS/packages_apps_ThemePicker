@@ -5,9 +5,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.database.ContentObserver
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
+import android.provider.Settings
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
 import android.view.animation.PathInterpolator
@@ -34,6 +36,14 @@ class GalleryEffectService : WallpaperService() {
         private val ease = PathInterpolator(0.2f, 0f, 0f, 1f)
 
         private val onStoreChanged: () -> Unit = { handler.post { loadScene(); draw() } }
+
+        // The depth wallpaper's subject arrives after we do, and changes with the photo.
+        private val subjectObserver = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) {
+                loadScene()
+                draw()
+            }
+        }
 
         private val frame = object : Runnable {
             override fun run() {
@@ -68,6 +78,8 @@ class GalleryEffectService : WallpaperService() {
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
             store.addListener(onStoreChanged)
+            contentResolver.registerContentObserver(
+                Settings.System.getUriFor(GalleryApplier.DEPTH_SUBJECT), false, subjectObserver)
             registerReceiver(screenReceiver, IntentFilter().apply {
                 addAction(Intent.ACTION_SCREEN_OFF)
                 addAction(Intent.ACTION_USER_PRESENT)
@@ -76,6 +88,7 @@ class GalleryEffectService : WallpaperService() {
 
         override fun onDestroy() {
             store.removeListener(onStoreChanged)
+            contentResolver.unregisterContentObserver(subjectObserver)
             unregisterReceiver(screenReceiver)
             handler.removeCallbacksAndMessages(null)
             handler.post {
@@ -121,7 +134,10 @@ class GalleryEffectService : WallpaperService() {
         private fun loadScene() {
             val wallpaper = store.liveWallpaper(true) ?: return
             effect = GalleryEffect.of(wallpaper.effect)
-            wallpaper.photos.firstOrNull()?.let { renderer.load(it, effect) }
+            val subject = if (wallpaper.depth) {
+                Settings.System.getString(contentResolver, GalleryApplier.DEPTH_SUBJECT)
+            } else null
+            wallpaper.photos.firstOrNull()?.let { renderer.load(it, effect, subject) }
         }
 
         private fun showLocked() {

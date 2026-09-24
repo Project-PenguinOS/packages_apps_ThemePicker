@@ -3,7 +3,10 @@ package com.android.customization.gallery
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Rect
 import android.opengl.EGL14
@@ -70,9 +73,11 @@ class GalleryEffectRenderer(private val context: Context) {
 
     private var effect = GalleryEffect.NONE
     private var photo: String? = null
+    private var subject: String? = null
     private var program = 0
     private val textures = IntArray(4)
     private var hasTextures = false
+    private var hasSubject = false
     private val blobColors = FloatArray(MAX_BLOBS * 3)
     private val blobStart = FloatArray(MAX_BLOBS * 2)
     private val blobEnd = FloatArray(MAX_BLOBS * 2)
@@ -118,13 +123,18 @@ class GalleryEffectRenderer(private val context: Context) {
         width = w
         height = h
         // The photo is cropped to the surface, so a new size needs new textures.
-        photo?.let { load(it, effect, force = true) }
+        photo?.let { load(it, effect, subject, force = true) }
     }
 
-    /** Loads the photo and the effect's program; cheap when neither changed. */
-    fun load(path: String, effect: GalleryEffect, force: Boolean = false) {
+    /**
+     * Loads the photo and the effect's program; cheap when nothing changed. [subject] is the
+     * depth wallpaper's cut-out of the photo, which keeps the subject out of the effect.
+     */
+    fun load(path: String, effect: GalleryEffect, subject: String? = null,
+            force: Boolean = false) {
         if (eglSurface == EGL14.EGL_NO_SURFACE || width == 0) {
             photo = path
+            this.subject = subject
             this.effect = effect
             return
         }
@@ -133,8 +143,9 @@ class GalleryEffectRenderer(private val context: Context) {
             program = if (effect == GalleryEffect.NONE) 0 else build(effect.shader)
             this.effect = effect
         }
-        if (force || path != photo || !hasTextures) {
+        if (force || path != photo || subject != this.subject || !hasTextures) {
             photo = path
+            this.subject = subject
             uploadTextures(path)
         }
     }
@@ -174,8 +185,9 @@ class GalleryEffectRenderer(private val context: Context) {
         set1f("uTransitionStyle", 0f)
         set1f("uScrollOffsetX", 0.5f)
         set1f("uScrollWindowX", 1f)
-        set1f("uBackgroundOnly", 0f)
-        set1f("uHasSubject", 0f)
+        // With the depth wallpaper's subject, the effects that can leave it untouched do.
+        set1f("uBackgroundOnly", if (hasSubject) 1f else 0f)
+        set1f("uHasSubject", if (hasSubject) 1f else 0f)
         set1f("uDrawerBlur", 0f)
         set1f("uDotSize", 12f)
         set1f("uGrayscale", 0f)
@@ -293,14 +305,39 @@ class GalleryEffectRenderer(private val context: Context) {
         GLES30.glGenTextures(4, textures, 0)
         upload(textures[0], sharp)
         upload(textures[1], blur)
-        // No subject isolation or clock: one transparent pixel for both.
+        // No clock of our own: one transparent pixel.
         val empty = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.TRANSPARENT)
         }
-        upload(textures[2], empty)
+        val mask = subject?.let { subjectMask(it) }
+        hasSubject = mask != null
+        upload(textures[2], mask ?: empty)
         upload(textures[3], empty)
         hasTextures = true
         makeBlobs(blur)
+    }
+
+    /** The cut-out's alpha as white on black, in the red channel the shaders read. */
+    private fun subjectMask(path: String): Bitmap? {
+        val cutout = try {
+            BitmapFactory.decodeFile(path)
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Could not read the depth subject", e)
+            null
+        } ?: return null
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
+            colorFilter = ColorMatrixColorFilter(ColorMatrix(floatArrayOf(
+                0f, 0f, 0f, 1f, 0f,
+                0f, 0f, 0f, 1f, 0f,
+                0f, 0f, 0f, 1f, 0f,
+                0f, 0f, 0f, 0f, 255f,
+            )))
+        }
+        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+            val canvas = Canvas(it)
+            canvas.drawColor(Color.BLACK)
+            GalleryRenderer.drawCentreCrop(canvas, cutout, width.toFloat(), height.toFloat(), paint)
+        }
     }
 
     private fun upload(id: Int, bitmap: Bitmap) {
