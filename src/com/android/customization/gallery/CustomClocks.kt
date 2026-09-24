@@ -33,6 +33,7 @@ object CustomClocks {
     private const val KEY_MARGIN_TOP = "lock_screen_custom_clock_margin_top"
     private const val KEY_OPACITY = "lock_screen_custom_clock_opacity"
     private const val KEY_HIDE_AOSP_CLOCK = "ls_clock_hide"
+    private const val PREVIEW_SHADOW = 0x59000000
     private const val HYPER_CLOCK = "com.android.systemui.clocks.HyperClockView"
     private const val ACTION_RESTART = "com.android.systemui.action.RESTART_FOR_CLOCK_STYLE"
 
@@ -188,6 +189,9 @@ object CustomClocks {
             if (color != null && (view.currentTextColor and 0xFFFFFF) == 0xFFFFFF) {
                 view.setTextColor(color)
             }
+            // The lock screen dims the wallpaper behind the clock and the previews don't, so
+            // white clocks vanish on light wallpapers without this.
+            view.setShadowLayer(view.textSize * 0.08f, 0f, view.textSize * 0.02f, PREVIEW_SHADOW)
         }
         if (color != null && (color and 0xFFFFFF) != 0xFFFFFF &&
                 view.javaClass.name == HYPER_CLOCK) {
