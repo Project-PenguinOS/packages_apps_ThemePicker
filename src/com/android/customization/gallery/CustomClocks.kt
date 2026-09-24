@@ -33,6 +33,7 @@ object CustomClocks {
     private const val KEY_MARGIN_TOP = "lock_screen_custom_clock_margin_top"
     private const val KEY_OPACITY = "lock_screen_custom_clock_opacity"
     private const val KEY_HIDE_AOSP_CLOCK = "ls_clock_hide"
+    private const val HYPER_CLOCK = "com.android.systemui.clocks.HyperClockView"
     private const val ACTION_RESTART = "com.android.systemui.action.RESTART_FOR_CLOCK_STYLE"
 
     /** Styles whose colours SystemUI never changes. */
@@ -67,7 +68,8 @@ object CustomClocks {
             val names =
                 (utils.getMethod("getClockNames").invoke(instance) as Array<String>).toList()
             val systemUi = runCatching {
-                context.createPackageContext(SYSTEMUI, Context.CONTEXT_IGNORE_SECURITY)
+                context.createPackageContext(SYSTEMUI,
+                    Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY)
             }.getOrNull()
             // SystemUI's copy of each layout, by name, is what the lock screen really shows.
             val layouts = settingsLayouts.map { id ->
@@ -128,7 +130,7 @@ object CustomClocks {
         if (style >= cat.layouts.size) return null
         return try {
             val inflater = LayoutInflater.from(cat.inflateContext).cloneInContext(
-                cat.inflateContext).apply { factory2 = PlainViews }
+                cat.inflateContext).apply { factory2 = SystemUiViews(cat.systemUi?.classLoader) }
             val view = inflater.inflate(cat.layouts[style], null)
             prepare(view, if (isColourable(style)) color ?: Color.WHITE else null)
             view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
@@ -148,13 +150,24 @@ object CustomClocks {
     }
 
     /**
-     * SystemUI-only views (weather and the like) can't be built here; plain views keep the
-     * layout's shape without them.
+     * SystemUI's clock views only need a context, so they're loaded from its code. Its other
+     * views (weather and the like) need SystemUI itself; plain views keep the layout's shape.
      */
-    private object PlainViews : LayoutInflater.Factory2 {
+    private class SystemUiViews(private val loader: ClassLoader?) : LayoutInflater.Factory2 {
         override fun onCreateView(parent: View?, name: String, context: Context,
                 attrs: AttributeSet): View? {
             if (!name.contains('.') || name.startsWith("android.")) return null
+            if (loader != null && name.startsWith("$SYSTEMUI.clocks.")) {
+                try {
+                    return loader.loadClass(name).asSubclass(View::class.java)
+                        .getConstructor(Context::class.java, AttributeSet::class.java)
+                        .newInstance(context, attrs)
+                } catch (e: ReflectiveOperationException) {
+                    Log.w(TAG, "Could not build $name", e)
+                } catch (e: LinkageError) {
+                    Log.w(TAG, "Could not build $name", e)
+                }
+            }
             return if (name.endsWith("TextView")) TextView(context, attrs) else View(context, attrs)
         }
 
@@ -174,6 +187,17 @@ object CustomClocks {
             // As SystemUI does: only text that was white takes the chosen colour.
             if (color != null && (view.currentTextColor and 0xFFFFFF) == 0xFFFFFF) {
                 view.setTextColor(color)
+            }
+        }
+        if (color != null && (color and 0xFFFFFF) != 0xFFFFFF &&
+                view.javaClass.name == HYPER_CLOCK) {
+            // SystemUI's shrinker may have inlined these; the clock then stays white.
+            for ((name, arg) in listOf("setColonFollowsDigits" to true, "setDigitColor" to color)) {
+                runCatching {
+                    view.javaClass.getMethod(name,
+                        if (arg is Boolean) Boolean::class.java else Int::class.java)
+                        .invoke(view, arg)
+                }
             }
         }
         if (view is ViewGroup) {
