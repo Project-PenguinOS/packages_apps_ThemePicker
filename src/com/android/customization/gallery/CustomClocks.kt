@@ -83,6 +83,11 @@ object CustomClocks {
                 val cr = context.contentResolver
                 fun int(key: String, default: Int) = Settings.Secure.getInt(cr, key, default)
                 val d = Tuning()
+                // Both ends one colour draws no gradient at all; that is what the old Settings
+                // screen left behind (white to white), so it reads as the gradient being broken.
+                val start = int(KEY_GRADIENT_START, d.gradientStart)
+                val end = int(KEY_GRADIENT_END, d.gradientEnd)
+                val distinct = start != end
                 return Tuning(
                     scale = int(KEY_SIZE, d.scale),
                     opacity = int(KEY_OPACITY, d.opacity),
@@ -90,8 +95,8 @@ object CustomClocks {
                     marginStart = int(KEY_MARGIN_START, d.marginStart),
                     accent = Settings.Secure.getString(cr, KEY_COLOR_MODE) == COLOR_MODE_ACCENT,
                     gradient = int(KEY_GRADIENT, 0) != 0,
-                    gradientStart = int(KEY_GRADIENT_START, d.gradientStart),
-                    gradientEnd = int(KEY_GRADIENT_END, d.gradientEnd),
+                    gradientStart = if (distinct) start else d.gradientStart,
+                    gradientEnd = if (distinct) end else d.gradientEnd,
                     gradientAnchorY = int(KEY_GRADIENT_ANCHOR_Y, d.gradientAnchorY),
                     gradientRadius = int(KEY_GRADIENT_RADIUS, d.gradientRadius),
                     albumArtColour = int(KEY_ALBUM_ART_COLOR, 0) != 0,

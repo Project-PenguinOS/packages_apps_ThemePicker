@@ -627,6 +627,9 @@ private fun ShortcutsSheet(interactor: KeyguardQuickAffordancePickerInteractor) 
     val slots by interactor.slots.collectAsState(initial = emptyList())
     val affordances by interactor.affordances.collectAsState(initial = emptyList())
     val selections by interactor.selections.collectAsState(initial = emptyList())
+    // SystemUI saves a pick without the selections flow re-emitting, so the chips follow what was
+    // tapped here, as the stock picker does, or the old pick stays lit and looks unchanged.
+    var picked by remember { mutableStateOf(mapOf<String, String?>()) }
     Column(Modifier.fillMaxWidth().padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.gallery_shortcuts), color = Color.White, fontSize = 20.sp,
@@ -636,15 +639,19 @@ private fun ShortcutsSheet(interactor: KeyguardQuickAffordancePickerInteractor) 
                 else R.string.gallery_shortcut_right),
                 color = Color(0xB3FFFFFF), fontSize = 14.sp,
                 modifier = Modifier.padding(horizontal = 20.dp))
-            val chosen = selections.firstOrNull { it.slotId == slot.id }?.affordanceId
+            val chosen =
+                if (slot.id in picked) picked[slot.id]
+                else selections.firstOrNull { it.slotId == slot.id }?.affordanceId
             val options = listOf(null to stringResource(R.string.gallery_shortcut_none)) +
                 affordances.filter { it.isEnabled }.map { it.id to it.name }
             Chips(options.map { it.second }, options.indexOfFirst { it.first == chosen }
                 .coerceAtLeast(0)) { i ->
                 val id = options[i].first
+                picked = picked + (slot.id to id)
                 scope.launch {
-                    if (id == null) interactor.unselectAllFromSlot(slot.id)
-                    else interactor.select(slot.id, id)
+                    // A pick replaces the slot's shortcut; select() alone adds to what is there.
+                    interactor.unselectAllFromSlot(slot.id)
+                    if (id != null) interactor.select(slot.id, id)
                 }
             }
         }
