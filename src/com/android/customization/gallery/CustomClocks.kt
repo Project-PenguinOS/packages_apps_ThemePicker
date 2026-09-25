@@ -178,7 +178,8 @@ object CustomClocks {
         val statusBar = dimen("status_bar_height", 28f)
         val side = dimen("below_clock_padding_start", 32f)
         return Frame(
-            top = (statusBar * 1.25f + tuning.marginTop * density).toInt(),
+            // The lock screen lays the clock out right under the status bar, then the margin.
+            top = (statusBar + tuning.marginTop * density).toInt(),
             side = side + (tuning.marginStart * density).toInt(),
             width = screen - side * 2,
             scale = tuning.scale.coerceIn(50, 150) / 100f,
