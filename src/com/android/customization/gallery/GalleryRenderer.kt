@@ -69,6 +69,30 @@ object GalleryRenderer {
         }
     }
 
+    /**
+     * The image an unlock effect or the depth cutout works from: the photo itself, or any other
+     * still wallpaper drawn once to a file, so every wall can take an effect, not just photos.
+     * Blocking; call off the main thread. Null for moving wallpapers.
+     */
+    fun effectSource(context: Context, wallpaper: GalleryWallpaper): String? {
+        if (wallpaper.kind == GalleryWallpaper.Kind.PHOTO) return wallpaper.photos.firstOrNull()
+        if (wallpaper.kind.live) return null
+        // Keyed on what is drawn, not on the effect or depth chosen for it.
+        val key = wallpaper.copy(effect = 0, depth = false).hashCode().toUInt().toString(16)
+        val dir = java.io.File(context.filesDir, "gallery/effect").apply { mkdirs() }
+        val file = java.io.File(dir, "$key.jpg")
+        if (!file.exists()) {
+            val (w, h) = GalleryApplier.screenSize(context)
+            val bitmap = toBitmap(context, wallpaper, w, h)
+            java.io.FileOutputStream(file).use {
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 94, it)
+            }
+            dir.listFiles()?.filter { it != file }?.sortedBy { it.lastModified() }
+                ?.dropLast(EFFECT_SOURCES_KEPT)?.forEach { it.delete() }
+        }
+        return file.absolutePath
+    }
+
     fun toBitmap(context: Context, wallpaper: GalleryWallpaper, width: Int, height: Int,
             shuffleIndex: Int = 0): Bitmap {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -76,6 +100,8 @@ object GalleryRenderer {
             weather = GalleryWeather.query(context))
         return bitmap
     }
+
+    private const val EFFECT_SOURCES_KEPT = 8
 
     // Colour
 

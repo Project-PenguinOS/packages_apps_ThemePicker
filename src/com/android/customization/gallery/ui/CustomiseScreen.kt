@@ -118,8 +118,14 @@ fun CustomiseScreen(
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
         val effect = GalleryEffect.of(wallpaper.effect)
-        val photo = wallpaper.photos.firstOrNull()
-        if (wallpaper.kind == Kind.PHOTO && effect != GalleryEffect.NONE && photo != null) {
+        // Any still wall can take an effect; the ones that are not photos are drawn to a file.
+        val source by produceState<String?>(null, wallpaper.copy(effect = 0, depth = false)) {
+            value = withContext(Dispatchers.IO) {
+                runCatching { GalleryRenderer.effectSource(context, wallpaper) }.getOrNull()
+            }
+        }
+        val photo = source
+        if (effect != GalleryEffect.NONE && photo != null) {
             EffectPreview(photo, effect, Modifier.fillMaxSize())
         }
         val onLight = rememberTopLight(wallpaper)
@@ -285,23 +291,6 @@ private fun KindControls(wallpaper: GalleryWallpaper, onChange: (GalleryWallpape
                     stringResource(R.string.gallery_filter_wash)), wallpaper.variant) {
                     onChange(wallpaper.copy(variant = it))
                 }
-                Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.gallery_depth), color = Color.White,
-                            fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                        Text(stringResource(R.string.gallery_depth_summary),
-                            color = Color(0xB3FFFFFF), fontSize = 13.sp)
-                    }
-                    Switch(wallpaper.depth, { onChange(wallpaper.copy(depth = it)) },
-                        colors = switchColors())
-                }
-                Text(stringResource(R.string.gallery_effect), color = Color.White,
-                    fontSize = 16.sp, fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 20.dp))
-                Chips(GalleryEffect.entries.map { stringResource(it.label) }, wallpaper.effect) {
-                    onChange(wallpaper.copy(effect = it))
-                }
             }
             Kind.SHUFFLE -> Chips(listOf(stringResource(R.string.gallery_shuffle_tap),
                 stringResource(R.string.gallery_shuffle_lock),
@@ -409,6 +398,27 @@ private fun KindControls(wallpaper: GalleryWallpaper, onChange: (GalleryWallpape
                         }
                     }
                 }
+            }
+        }
+        // Depth and the unlock effects work from a still image, which every wall but the
+        // moving and shuffling ones can give.
+        if (!wallpaper.kind.live) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.gallery_depth), color = Color.White,
+                        fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.gallery_depth_summary),
+                        color = Color(0xB3FFFFFF), fontSize = 13.sp)
+                }
+                Switch(wallpaper.depth, { onChange(wallpaper.copy(depth = it)) },
+                    colors = switchColors())
+            }
+            Text(stringResource(R.string.gallery_effect), color = Color.White,
+                fontSize = 16.sp, fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(horizontal = 20.dp))
+            Chips(GalleryEffect.entries.map { stringResource(it.label) }, wallpaper.effect) {
+                onChange(wallpaper.copy(effect = it))
             }
         }
     }

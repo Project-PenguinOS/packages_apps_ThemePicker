@@ -263,10 +263,13 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
 
     private fun apply(lockScreen: LockScreen, tuning: CustomClocks.Tuning? = null) {
         lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                GalleryApplier.apply(this@LockScreenGalleryActivity, lockScreen)
-            }
+            // The clock first: an effect with depth waits for its subject before the wallpaper
+            // goes on, and the clock should not wait with it.
             applyClock(lockScreen.clock, tuning)
+            val app = applicationContext
+            // Out of the activity's scope, so leaving the gallery does not cut the wallpaper,
+            // its effect or its depth off halfway.
+            ApplyScope.launch { GalleryApplier.apply(app, lockScreen) }
             finish()
         }
     }
@@ -319,6 +322,10 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
     }
 
     companion object {
+        private val ApplyScope =
+            kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+            )
         const val EXTRA_GALLERY = "gallery"
         private const val MAX_SHUFFLE = 30
         private const val FEATURED = 6

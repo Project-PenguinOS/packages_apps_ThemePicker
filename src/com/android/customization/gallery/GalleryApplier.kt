@@ -82,8 +82,7 @@ object GalleryApplier {
             Log.e(TAG, "Could not set the wallpaper", e)
             return
         }
-        applyDepth(context, wallpaper.kind == GalleryWallpaper.Kind.PHOTO && wallpaper.depth,
-            extract = wallpaper.effect == 0)
+        applyDepth(context, !wallpaper.kind.live && wallpaper.depth, extract = wallpaper.effect == 0)
         store.setCurrent(lockScreen.id)
         store.pruneImportedPhotos()
     }

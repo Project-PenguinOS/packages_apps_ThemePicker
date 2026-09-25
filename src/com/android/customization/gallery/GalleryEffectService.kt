@@ -137,7 +137,8 @@ class GalleryEffectService : WallpaperService() {
             val subject = if (wallpaper.depth) {
                 Settings.System.getString(contentResolver, GalleryApplier.DEPTH_SUBJECT)
             } else null
-            wallpaper.photos.firstOrNull()?.let { renderer.load(it, effect, subject) }
+            GalleryRenderer.effectSource(this@GalleryEffectService, wallpaper)
+                ?.let { renderer.load(it, effect, subject) }
         }
 
         private fun showLocked() {
