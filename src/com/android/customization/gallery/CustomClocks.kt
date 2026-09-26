@@ -5,6 +5,11 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.Shader
 import android.provider.Settings
 import android.util.AttributeSet
 import android.util.Log
@@ -197,10 +202,13 @@ object CustomClocks {
      * [trim] crops the empty space around it, for small tiles.
      */
     fun preview(context: Context, style: Int, width: Int, color: Int?,
-            trim: Boolean = false): Bitmap? {
+            trim: Boolean = false, gradient: Tuning? = null): Bitmap? {
         if (style <= 0) return null
         val minute = System.currentTimeMillis() / 60_000
-        val key = "$style/$width/$color/$minute/$trim"
+        val shade = gradient?.takeIf { it.gradient && isColourable(style) }
+        val key = "$style/$width/$color/$minute/$trim/" + shade?.let {
+            "${it.gradientStart}/${it.gradientEnd}/${it.gradientAnchorY}/${it.gradientRadius}"
+        }
         previews.get(key)?.let { return it }
         val cat = load(context) ?: return null
         if (style >= cat.layouts.size) return null
@@ -208,7 +216,8 @@ object CustomClocks {
             val inflater = LayoutInflater.from(cat.inflateContext).cloneInContext(
                 cat.inflateContext).apply { factory2 = SystemUiViews(cat.systemUi?.classLoader) }
             val view = inflater.inflate(cat.layouts[style], null)
-            prepare(view, if (isColourable(style)) color ?: Color.WHITE else null)
+            prepare(view, if (shade != null) Color.WHITE
+                else if (isColourable(style)) color ?: Color.WHITE else null)
             view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
             view.layout(0, 0, view.measuredWidth, view.measuredHeight)
@@ -216,6 +225,7 @@ object CustomClocks {
             Bitmap.createBitmap(view.measuredWidth, view.measuredHeight, Bitmap.Config.ARGB_8888)
                 .let {
                     view.draw(Canvas(it))
+                    shade?.let { t -> shade(it, t) }
                     if (trim) trimmed(it) else it
                 }
                 ?.also { previews.put(key, it) }
@@ -223,6 +233,19 @@ object CustomClocks {
             Log.w(TAG, "Could not draw clock style $style", e)
             null
         }
+    }
+
+    /** Paints the gradient over the white clock the way SystemUI lays it over the clock view. */
+    private fun shade(bitmap: Bitmap, t: Tuning) {
+        val h = bitmap.height.toFloat()
+        val cy = h * t.gradientAnchorY / 100f
+        val len = h / 2f * t.gradientRadius.coerceIn(25, 200) / 100f
+        val paint = Paint().apply {
+            shader = LinearGradient(0f, cy - len, 0f, cy + len, t.gradientStart, t.gradientEnd,
+                Shader.TileMode.CLAMP)
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+        }
+        Canvas(bitmap).drawRect(0f, 0f, bitmap.width.toFloat(), h, paint)
     }
 
     /**

@@ -217,15 +217,15 @@ fun CustomClockLayer(
     val frame = remember(tuning) {
         if (tuning != null) CustomClocks.frame(context, tuning) else CustomClocks.frame(context)
     }
-    // Accent and gradient clocks are previewed in their accent and first gradient colour.
     val color = when {
         tuning?.gradient == true -> tuning.gradientStart
         tuning?.accent == true -> context.getColor(android.R.color.system_accent1_100)
         else -> style.color
     }
-    val preview by produceState<Bitmap?>(null, style.face, color, frame.width) {
+    val gradient = tuning?.takeIf { it.gradient }
+    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, gradient) {
         value = withContext(Dispatchers.Default) {
-            CustomClocks.preview(context, style.face, frame.width, color)
+            CustomClocks.preview(context, style.face, frame.width, color, gradient = gradient)
         }
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
