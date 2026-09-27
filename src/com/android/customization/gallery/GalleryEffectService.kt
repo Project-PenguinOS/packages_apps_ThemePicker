@@ -1,6 +1,7 @@
 package com.android.customization.gallery
 
 import android.app.KeyguardManager
+import android.app.WallpaperColors
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -33,6 +34,8 @@ class GalleryEffectService : WallpaperService() {
         private var animationStart = 0L
         private var animating = false
         private var visible = false
+        @Volatile private var colors: WallpaperColors? = null
+        private var colorsFor: GalleryWallpaper? = null
         private val ease = PathInterpolator(0.2f, 0f, 0f, 1f)
 
         private val onStoreChanged: () -> Unit = { handler.post { loadScene(); draw() } }
@@ -139,7 +142,14 @@ class GalleryEffectService : WallpaperService() {
             } else null
             GalleryRenderer.effectSource(this@GalleryEffectService, wallpaper)
                 ?.let { renderer.load(it, effect, subject) }
+            if (wallpaper != colorsFor) {
+                colorsFor = wallpaper
+                colors = GalleryRenderer.colorsOf(this@GalleryEffectService, wallpaper)
+                notifyColorsChanged()
+            }
         }
+
+        override fun onComputeColors(): WallpaperColors? = colors
 
         private fun showLocked() {
             handler.removeCallbacks(frame)

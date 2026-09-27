@@ -249,7 +249,9 @@ class GalleryEffectRenderer(private val context: Context) {
         }
         detachSurface()
         EGL14.eglDestroyContext(display, eglContext)
-        EGL14.eglTerminate(display)
+        // No eglTerminate: the default display is shared by the whole process, and the picker's
+        // own previews of this wallpaper run in it too. Terminating it when one engine went away
+        // pulled EGL out from under the others and the picker's UI with them.
         display = EGL14.EGL_NO_DISPLAY
         eglContext = EGL14.EGL_NO_CONTEXT
         program = 0

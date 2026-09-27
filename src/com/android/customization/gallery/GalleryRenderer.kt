@@ -1,5 +1,6 @@
 package com.android.customization.gallery
 
+import android.app.WallpaperColors
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -100,6 +101,19 @@ object GalleryRenderer {
             weather = GalleryWeather.query(context))
         return bitmap
     }
+
+    /**
+     * The colours the system themes from. A live wallpaper has to report them itself, or the
+     * wallpaper's accent never reaches the rest of the system. Blocking; call off the main thread.
+     */
+    fun colorsOf(context: Context, wallpaper: GalleryWallpaper, shuffleIndex: Int = 0):
+            WallpaperColors? =
+        try {
+            val bitmap = toBitmap(context, wallpaper, 180, 390, shuffleIndex)
+            WallpaperColors.fromBitmap(bitmap).also { bitmap.recycle() }
+        } catch (e: Exception) {
+            null
+        }
 
     private const val EFFECT_SOURCES_KEPT = 8
 

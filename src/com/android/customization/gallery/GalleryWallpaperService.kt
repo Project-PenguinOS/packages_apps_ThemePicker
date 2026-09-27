@@ -1,5 +1,6 @@
 package com.android.customization.gallery
 
+import android.app.WallpaperColors
 import android.app.WallpaperManager
 import android.database.ContentObserver
 import android.net.Uri
@@ -31,6 +32,8 @@ class GalleryWallpaperService : WallpaperService() {
         private var weather: GalleryWeather.Snapshot? = null
         private var width = 0
         private var height = 0
+        @Volatile private var colors: WallpaperColors? = null
+        private var colorsFor: Pair<GalleryWallpaper, Int>? = null
 
         /** The lock screen's wallpaper also serves the home screen when they are a pair. */
         private val forLock: Boolean
@@ -111,11 +114,23 @@ class GalleryWallpaperService : WallpaperService() {
         private fun dayOf(ms: Long) =
             Calendar.getInstance().apply { timeInMillis = ms }.get(Calendar.DAY_OF_YEAR)
 
+        override fun onComputeColors(): WallpaperColors? = colors
+
+        /** Recomputes the theme colours when the picture changes; on the drawing thread. */
+        private fun updateColors(spec: GalleryWallpaper) {
+            val key = spec to store.shuffleIndex
+            if (key == colorsFor) return
+            colorsFor = key
+            colors = GalleryRenderer.colorsOf(this@GalleryWallpaperService, spec, store.shuffleIndex)
+            notifyColorsChanged()
+        }
+
         private fun draw() {
             handler.removeCallbacks(drawFrame)
             val spec = wallpaper ?: return
             if (width == 0 || height == 0) return
             if (visible) maybeAdvanceShuffle(onLock = false)
+            updateColors(spec)
             val holder = surfaceHolder
             val canvas = try {
                 holder.lockHardwareCanvas()
