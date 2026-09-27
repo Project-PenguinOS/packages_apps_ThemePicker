@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -146,10 +148,16 @@ fun ClockText(
     // Another of SystemUI's faces: it draws itself, so its picker thumbnail stands in for it.
     if (style.face == 0 && !style.isDefaultClock) {
         SystemClocks.thumbnail(style.clockId)?.let { thumbnail ->
+            val w = thumbnail.intrinsicWidth.coerceAtLeast(1)
+            val h = thumbnail.intrinsicHeight.coerceAtLeast(1)
+            val toned = style.color?.let { color ->
+                remember(style.clockId, color) { SystemClocks.toned(style.clockId!!, color) }
+            }
             Image(
-                rememberDrawablePainter(thumbnail),
+                toned?.let { BitmapPainter(it.asImageBitmap()) } ?: rememberDrawablePainter(thumbnail),
                 contentDescription = null,
-                modifier = modifier.height(if (style.small) heightDp else heightDp * 1.3f),
+                modifier = modifier.height(if (style.small) heightDp else heightDp * 1.6f)
+                    .aspectRatio(w.toFloat() / h),
                 contentScale = ContentScale.Fit,
             )
             return
