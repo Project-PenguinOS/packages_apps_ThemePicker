@@ -38,6 +38,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.android.customization.model.color.ColorOptionImpl
+import com.android.customization.gallery.ui.LockScreenGalleryActivity
 import com.android.customization.picker.clock.ui.binder.ClockFloatingSheetBinder
 import com.android.customization.picker.clock.ui.view.ClockConstraintLayoutHostView
 import com.android.customization.picker.clock.ui.view.ClockConstraintLayoutHostView.Companion.addClockViews
@@ -319,10 +320,14 @@ constructor(private val defaultCustomizationOptionsBinder: DefaultCustomizationO
 
         lifecycleOwner.lifecycleScope.launch {
             lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    optionsViewModel.onCustomizeClockClicked.collect {
-                        optionClock.setOnClickListener { _ -> it?.invoke() }
-                    }
+                // Clocks are chosen in the lock screen customiser, where the rest of the lock
+                // screen is: a face picked here would be covered by its custom clock styles.
+                optionClock.setOnClickListener { entry ->
+                    entry.context.startActivity(
+                        Intent(ACTION_LOCK_SCREENS)
+                            .setPackage(entry.context.packageName)
+                            .putExtra(LockScreenGalleryActivity.EXTRA_CLOCK, true)
+                    )
                 }
 
                 launch {
@@ -908,3 +913,5 @@ constructor(private val defaultCustomizationOptionsBinder: DefaultCustomizationO
         private const val BACKGROUND_CONTEXT = "backgroundContext"
     }
 }
+
+private const val ACTION_LOCK_SCREENS = "com.android.wallpaper.action.LOCK_SCREENS"

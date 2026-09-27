@@ -25,7 +25,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.text.style.TextOverflow
+import com.android.customization.gallery.SystemClocks
+import com.android.compose.ui.graphics.painter.rememberDrawablePainter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -100,12 +105,20 @@ fun CustomiseScreen(
     affordanceInteractor: KeyguardQuickAffordancePickerInteractor,
     onCancel: () -> Unit,
     onDone: (LockScreen, CustomClocks.Tuning) -> Unit,
+    initialSheet: String? = null,
 ) {
     val context = LocalContext.current
     var wallpaper by remember { mutableStateOf(initial.wallpaper) }
-    var clock by remember { mutableStateOf(initial.clock) }
+    var clock by remember {
+        mutableStateOf(
+            initial.clock.let {
+                if (it.face == 0 && it.clockId == null) it.copy(clockId = SystemClocks.selectedId)
+                else it
+            }
+        )
+    }
     var tuning by remember { mutableStateOf(CustomClocks.Tuning.load(context)) }
-    var sheet by remember { mutableStateOf<String?>(null) }
+    var sheet by remember { mutableStateOf(initialSheet) }
     var askHome by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
     LaunchedEffect(Unit) {
@@ -440,7 +453,19 @@ private fun ClockSheet(
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight)
         .verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (styles.size > 1) {
+        // SystemUI's own faces first, where its default clock was, then the custom styles.
+        val systemFaces = SystemClocks.faces
+        val entries =
+            remember(styles, systemFaces) {
+                val system =
+                    if (systemFaces.isEmpty()) {
+                        styles.take(1).map { ClockEntry(0, null, it, null) }
+                    } else {
+                        systemFaces.map { ClockEntry(0, it.id, it.name, it.thumbnail) }
+                    }
+                system + styles.drop(1).mapIndexed { i, name -> ClockEntry(i + 1, null, name, null) }
+            }
+        if (entries.size > 1) {
             Text(stringResource(R.string.gallery_clock_style), color = Color.White,
                 fontSize = 20.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp))
@@ -448,11 +473,15 @@ private fun ClockSheet(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                itemsIndexed(styles) { face, name ->
-                    val on = clock.face == face
+                items(entries) { entry ->
+                    val on = clock.face == entry.face && (entry.face > 0 ||
+                        (clock.clockId ?: ClockStyle.DEFAULT_CLOCK_ID) ==
+                            (entry.clockId ?: ClockStyle.DEFAULT_CLOCK_ID))
                     Column(horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.width(104.dp)
-                            .clickable { onChange(clock.copy(face = face)) }) {
+                            .clickable {
+                                onChange(clock.copy(face = entry.face, clockId = entry.clockId))
+                            }) {
                         Box(
                             Modifier.fillMaxWidth().height(96.dp)
                                 .clip(RoundedCornerShape(14.dp))
@@ -463,16 +492,28 @@ private fun ClockSheet(
                                 .padding(6.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            LockClock(clock.copy(face = face, small = face == 0),
-                                if (face == 0) 30.dp else 84.dp, 92.dp, fixedTime = face == 0)
+                            val thumbnail = entry.thumbnail
+                            if (thumbnail != null) {
+                                Image(rememberDrawablePainter(thumbnail), contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit)
+                            } else {
+                                LockClock(
+                                    clock.copy(face = entry.face, clockId = null,
+                                        small = entry.face == 0),
+                                    if (entry.face == 0) 30.dp else 84.dp, 92.dp,
+                                    fixedTime = entry.face == 0)
+                            }
                         }
-                        Text(name, color = Color.White, fontSize = 12.sp, maxLines = 1,
+                        Text(entry.name, color = Color.White, fontSize = 12.sp, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(top = 4.dp))
                     }
                 }
             }
         }
-        if (clock.face == 0) {
+        // The font presets and rounding only mean anything to the default flex clock.
+        if (clock.isDefaultClock) {
             Text(stringResource(R.string.gallery_clock_font), color = Color.White,
                 fontSize = 20.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp))
@@ -727,3 +768,11 @@ private fun HomeDialog(
         }
     }
 }
+
+/** One choice in the clock style row: a SystemUI face ([face] 0) or a custom style. */
+private data class ClockEntry(
+    val face: Int,
+    val clockId: String?,
+    val name: String,
+    val thumbnail: android.graphics.drawable.Drawable?,
+)

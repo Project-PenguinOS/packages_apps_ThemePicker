@@ -41,6 +41,7 @@ import com.android.customization.gallery.GalleryStore
 import com.android.customization.gallery.GalleryWallpaper
 import com.android.customization.gallery.GalleryWallpaper.Kind
 import com.android.customization.gallery.LockScreen
+import com.android.customization.gallery.SystemClocks
 import com.android.customization.picker.clock.domain.interactor.ClockPickerInteractor
 import com.android.customization.picker.clock.shared.ClockSize
 import com.android.customization.picker.clock.shared.model.ClockMetadataModel
@@ -68,7 +69,11 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
         /** [zoomIn]: arrive as a full lock screen shrinking into its card. */
         data class Switcher(val zoomIn: Boolean) : Screen
         data object Gallery : Screen
-        data class Customise(val lockScreen: LockScreen, val isNew: Boolean) : Screen
+        data class Customise(
+            val lockScreen: LockScreen,
+            val isNew: Boolean,
+            val openClock: Boolean = false,
+        ) : Screen
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,12 +85,32 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
         super.onCreate(savedInstanceState)
         val store = GalleryStore.get(this)
         val startInGallery = intent.getBooleanExtra(EXTRA_GALLERY, false)
+        val startOnClock = intent.getBooleanExtra(EXTRA_CLOCK, false)
         lifecycleScope.launch(Dispatchers.IO) { adoptCurrentWallpaper(store) }
+        lifecycleScope.launch {
+            clockInteractor.allClocks.collect { clocks ->
+                SystemClocks.faces =
+                    clocks.map { SystemClocks.Face(it.clockId, it.description, it.thumbnail) }
+            }
+        }
+        lifecycleScope.launch {
+            clockInteractor.selectedClockId.collect { SystemClocks.selectedId = it }
+        }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 var screen by remember {
+                    // Wallpaper & style sends its clock entry here, straight to the clock.
+                    val current =
+                        store.lockScreens.let { all ->
+                            all.firstOrNull { it.id == store.currentId } ?: all.firstOrNull()
+                        }
                     mutableStateOf<Screen>(
-                        if (startInGallery) Screen.Gallery else Screen.Switcher(zoomIn = true))
+                        when {
+                            startInGallery -> Screen.Gallery
+                            startOnClock && current != null ->
+                                Screen.Customise(current, isNew = false, openClock = true)
+                            else -> Screen.Switcher(zoomIn = true)
+                        })
                 }
                 var version by remember { mutableStateOf(0) }
                 val scope = rememberCoroutineScope()
@@ -213,6 +238,7 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
                             initial = current.lockScreen,
                             isNew = current.isNew,
                             affordanceInteractor = affordanceInteractor,
+                            initialSheet = if (current.openClock) "clock" else null,
                             onCancel = {
                                 screen = if (current.isNew) Screen.Gallery
                                 else Screen.Switcher(zoomIn = true)
@@ -283,14 +309,15 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
     }
 
     private suspend fun applyStockClock(style: ClockStyle) {
-        val axes = style.preset?.let {
+        // The weight and width presets are the default flex clock's own axes.
+        val axes = style.preset?.takeIf { style.isDefaultClock }?.let {
             val (weight, width) = CLOCK_PRESETS[it.coerceIn(0, CLOCK_PRESETS.size - 1)]
             ClockAxisStyle(mapOf("wght" to weight, "wdth" to width,
                 "ROND" to if (style.rounded) 100f else 0f, "slnt" to 0f))
         }
         runCatching {
             clockInteractor.applyClock(
-                clockId = null,
+                clockId = style.clockId ?: ClockStyle.DEFAULT_CLOCK_ID,
                 size = if (style.small) ClockSize.SMALL else ClockSize.DYNAMIC,
                 selectedColorId = null,
                 colorToneProgress = ClockMetadataModel.DEFAULT_COLOR_TONE_PROGRESS,
@@ -327,6 +354,7 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
                 kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
             )
         const val EXTRA_GALLERY = "gallery"
+        const val EXTRA_CLOCK = "clock"
         private const val MAX_SHUFFLE = 30
         private const val FEATURED = 6
     }

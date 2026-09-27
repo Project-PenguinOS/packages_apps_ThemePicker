@@ -136,9 +136,16 @@ data class ClockStyle(
     val rounded: Boolean = false,
     val color: Int? = null,
     val small: Boolean = false,
+    /** Which of SystemUI's clocks [face] 0 is; null is its default flex clock. */
+    val clockId: String? = null,
 ) {
+    /** SystemUI's default clock, the only one the font presets and rounding apply to. */
+    val isDefaultClock: Boolean
+        get() = face == 0 && (clockId == null || clockId == DEFAULT_CLOCK_ID)
+
     fun toJson(): JSONObject =
         JSONObject()
+            .put("clockId", clockId ?: JSONObject.NULL)
             .put("face", face)
             .put("preset", preset ?: JSONObject.NULL)
             .put("rounded", rounded)
@@ -153,6 +160,9 @@ data class ClockStyle(
                 rounded = json.optBoolean("rounded"),
                 color = if (json.isNull("color")) null else json.optInt("color"),
                 small = json.optBoolean("small"),
+                clockId = if (json.isNull("clockId")) null else json.optString("clockId"),
             )
+
+        const val DEFAULT_CLOCK_ID = "DEFAULT"
     }
 }

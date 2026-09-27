@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.android.customization.gallery.SystemClocks
+import com.android.compose.ui.graphics.painter.rememberDrawablePainter
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -141,6 +143,18 @@ fun ClockText(
     fixedTime: Boolean = false,
     onLight: Boolean = false,
 ) {
+    // Another of SystemUI's faces: it draws itself, so its picker thumbnail stands in for it.
+    if (style.face == 0 && !style.isDefaultClock) {
+        SystemClocks.thumbnail(style.clockId)?.let { thumbnail ->
+            Image(
+                rememberDrawablePainter(thumbnail),
+                contentDescription = null,
+                modifier = modifier.height(if (style.small) heightDp else heightDp * 1.3f),
+                contentScale = ContentScale.Fit,
+            )
+            return
+        }
+    }
     val context = LocalContext.current
     val text = clockString(context, style.small, fixedTime)
     val color = style.color ?: if (onLight) 0xFF1C1C1E.toInt() else android.graphics.Color.WHITE
