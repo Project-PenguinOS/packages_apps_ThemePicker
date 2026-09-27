@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
@@ -16,6 +17,13 @@ import java.util.Calendar
 
 /** Draws the gallery's live wallpapers: animated, time-based and photo shuffle. */
 class GalleryWallpaperService : WallpaperService() {
+
+    // The picker previews this wallpaper from its own main thread and waits there for the engine
+    // to mirror its surface. On the main looper, as by default, the engine could never answer, and
+    // the picker froze until the wait timed out.
+    private val engineThread by lazy { HandlerThread("GalleryWallpaperServiceEngine").apply { start() } }
+
+    override fun onProvideEngineLooper(): Looper = engineThread.looper
 
     override fun onCreateEngine(): Engine = GalleryEngine()
 

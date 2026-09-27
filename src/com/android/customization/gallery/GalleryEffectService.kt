@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.service.wallpaper.WallpaperService
@@ -20,6 +21,13 @@ import android.view.animation.PathInterpolator
  * unlocked look as the device unlocks, as Atmo Engine does.
  */
 class GalleryEffectService : WallpaperService() {
+
+    // The picker previews this wallpaper from its own main thread and waits there for the engine
+    // to mirror its surface. On the main looper, as by default, the engine could never answer, and
+    // the picker froze until the wait timed out.
+    private val engineThread by lazy { HandlerThread("GalleryEffectServiceEngine").apply { start() } }
+
+    override fun onProvideEngineLooper(): Looper = engineThread.looper
 
     override fun onCreateEngine(): Engine = EffectEngine()
 
