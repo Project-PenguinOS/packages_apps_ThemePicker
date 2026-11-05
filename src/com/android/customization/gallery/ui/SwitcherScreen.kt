@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,8 +61,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -70,12 +74,15 @@ import com.android.customization.gallery.GalleryRenderer
 import com.android.customization.gallery.GalleryStore
 import com.android.customization.gallery.GalleryWallpaper
 import com.android.customization.gallery.GalleryWallpaper.Kind
+import com.android.customization.gallery.HomeStyle
 import com.android.customization.gallery.LockScreen
 import com.android.themepicker.R
 import kotlin.math.abs
 import kotlin.math.min
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 fun wallpaperLabel(wallpaper: GalleryWallpaper): Int = when (wallpaper.kind) {
     Kind.COLOUR -> R.string.gallery_colour
@@ -109,7 +116,18 @@ fun SwitcherScreen(
     onAdd: () -> Unit,
     onDelete: (LockScreen) -> Unit,
     onReady: () -> Unit = {},
+    /** Applies [LockScreen] with a new home screen; null in "lock screen only" mode. */
+    onHome: ((LockScreen, HomeStyle, String?) -> Unit)? = null,
 ) {
+    var homeFor by remember { mutableStateOf<LockScreen?>(null) }
+    homeFor?.let { lockScreen ->
+        HomeDialog(lockScreen.wallpaper, lockScreen.homePhoto,
+            onDismiss = { homeFor = null }) { style, photo ->
+            homeFor = null
+            onHome?.invoke(lockScreen, style, photo)
+        }
+    }
+    val currentHome = rememberCurrentHome()
     var changes by remember { mutableIntStateOf(0) }
     DisposableEffect(store) {
         val listener: () -> Unit = { changes++ }
@@ -246,7 +264,36 @@ fun SwitcherScreen(
                 Modifier.padding(bottom = 32.dp).alpha(chrome),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Spacer(Modifier.width(72.dp))
+                if (onHome != null && shown != null) {
+                    // The home screen that goes with this lock screen, side by side with it.
+                    var dominant by remember(shown.wallpaper) { mutableStateOf<Int?>(null) }
+                    val context = LocalContext.current
+                    LaunchedEffect(shown.wallpaper) {
+                        dominant = withContext(Dispatchers.Default) {
+                            GalleryRenderer.dominantColor(context, shown.wallpaper)
+                        }
+                    }
+                    val shape = RoundedCornerShape(12.dp)
+                    Box(
+                        Modifier.width(56.dp).aspectRatio(lockScreenAspectRatio()).clip(shape)
+                            .border(1.dp, Color(0x66FFFFFF), shape)
+                            .clickable { homeFor = shown }
+                            .semantics {
+                                contentDescription =
+                                    context.getString(R.string.gallery_home_title)
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        HomePreview(shown.home, shown.wallpaper, shown.homePhoto,
+                            Color(dominant ?: 0xFF444444.toInt()), currentHome,
+                            Modifier.fillMaxSize())
+                        Icon(Icons.Rounded.Home, null, tint = Color.White,
+                            modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(Modifier.width(16.dp))
+                } else {
+                    Spacer(Modifier.width(72.dp))
+                }
                 Box(
                     Modifier.width(200.dp).height(56.dp).clip(RoundedCornerShape(28.dp))
                         .background(Color(0xFF1C1C1E)).border(1.dp, Color(0x33FFFFFF),

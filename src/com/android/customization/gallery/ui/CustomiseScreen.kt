@@ -2,6 +2,9 @@ package com.android.customization.gallery.ui
 
 import android.app.WallpaperManager
 import android.graphics.drawable.BitmapDrawable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.animation.core.Animatable
@@ -41,6 +44,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -83,6 +87,7 @@ import com.android.customization.gallery.ClockStyle
 import com.android.customization.gallery.CustomClocks
 import com.android.customization.gallery.GalleryEffect
 import com.android.customization.gallery.GalleryRenderer
+import com.android.customization.gallery.GalleryStore
 import com.android.customization.gallery.GalleryWallpaper
 import com.android.customization.gallery.GalleryWallpaper.Kind
 import com.android.customization.gallery.GalleryWallpaper.Shuffle
@@ -110,6 +115,8 @@ fun CustomiseScreen(
     onCancel: () -> Unit,
     onDone: (LockScreen, CustomClocks.Tuning) -> Unit,
     initialSheet: String? = null,
+    /** Set from "Lock screen" in Wallpaper and style: never touch the home screen. */
+    lockOnly: Boolean = false,
 ) {
     val context = LocalContext.current
     var wallpaper by remember { mutableStateOf(initial.wallpaper) }
@@ -187,6 +194,9 @@ fun CustomiseScreen(
                 if (wallpaper.effect != 0) {
                     onDone(initial.copy(wallpaper = wallpaper, clock = clock,
                         home = HomeStyle.PAIR), tuning)
+                } else if (lockOnly) {
+                    onDone(initial.copy(wallpaper = wallpaper, clock = clock,
+                        home = HomeStyle.KEEP), tuning)
                 } else askHome = true
             }
         }
@@ -224,9 +234,10 @@ fun CustomiseScreen(
         }
     }
     if (askHome) {
-        HomeDialog(wallpaper, onDismiss = { askHome = false }) { home ->
+        HomeDialog(wallpaper, initial.homePhoto, onDismiss = { askHome = false }) { home, photo ->
             askHome = false
-            onDone(initial.copy(wallpaper = wallpaper, clock = clock, home = home), tuning)
+            onDone(initial.copy(wallpaper = wallpaper, clock = clock, home = home,
+                homePhoto = photo ?: initial.homePhoto), tuning)
         }
     }
 }
@@ -714,26 +725,30 @@ private fun ShortcutsSheet(interactor: KeyguardQuickAffordancePickerInteractor) 
 }
 
 @Composable
-private fun HomeDialog(
+internal fun HomeDialog(
     wallpaper: GalleryWallpaper,
+    homePhoto: String?,
     onDismiss: () -> Unit,
-    onPick: (HomeStyle) -> Unit,
+    onPick: (HomeStyle, String?) -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val pickPhoto = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val path = withContext(Dispatchers.IO) { GalleryStore.get(context).importPhoto(uri) }
+                ?: return@launch
+            onPick(HomeStyle.PHOTO, path)
+        }
+    }
     var dominant by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(wallpaper) {
         dominant = withContext(Dispatchers.Default) {
             GalleryRenderer.dominantColor(context, wallpaper)
         }
     }
-    val currentHome by produceState<ImageBitmap?>(null) {
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                (WallpaperManager.getInstance(context).getDrawable(WallpaperManager.FLAG_SYSTEM)
-                    as? BitmapDrawable)?.bitmap?.asImageBitmap()
-            }.getOrNull()
-        }
-    }
+    val currentHome = rememberCurrentHome()
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.clip(RoundedCornerShape(28.dp)).background(Color(0xFF1C1C1E))
@@ -751,37 +766,26 @@ private fun HomeDialog(
             ) {
                 HomeStyle.entries.forEach { style ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.width(62.dp).clickable { onPick(style) }) {
+                        modifier = Modifier.width(62.dp).clickable {
+                            if (style == HomeStyle.PHOTO) {
+                                pickPhoto.launch(PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            } else {
+                                onPick(style, null)
+                            }
+                        }) {
                         val shape = RoundedCornerShape(12.dp)
                         val base = Color(dominant ?: 0xFF444444.toInt())
-                        Box(Modifier.fillMaxWidth().aspectRatio(lockScreenAspectRatio()).clip(shape)
-                            .border(1.dp, Color(0x33FFFFFF), shape)) {
-                            when (style) {
-                                HomeStyle.KEEP -> {
-                                    Box(Modifier.fillMaxSize().background(Color(0xFF2C2C2E)))
-                                    currentHome?.let {
-                                        Image(it, null, Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop)
-                                    }
-                                }
-                                HomeStyle.PAIR -> WallpaperImage(wallpaper, Modifier.fillMaxSize())
-                                HomeStyle.BLUR -> WallpaperImage(wallpaper,
-                                    Modifier.fillMaxSize().blur(8.dp))
-                                HomeStyle.COLOUR -> Box(Modifier.fillMaxSize().background(base))
-                                HomeStyle.GRADIENT -> Box(Modifier.fillMaxSize().background(
-                                    Brush.verticalGradient(listOf(
-                                        Color(GalleryRenderer.blend(base.toArgb(),
-                                            0xFFFFFFFF.toInt(), 0.3f)),
-                                        Color(GalleryRenderer.blend(base.toArgb(),
-                                            0xFF000000.toInt(), 0.45f))))))
-                            }
-                        }
+                        HomePreview(style, wallpaper, homePhoto, base, currentHome,
+                            Modifier.fillMaxWidth().aspectRatio(lockScreenAspectRatio()).clip(shape)
+                                .border(1.dp, Color(0x33FFFFFF), shape))
                         Text(stringResource(when (style) {
                             HomeStyle.KEEP -> R.string.gallery_home_keep
                             HomeStyle.PAIR -> R.string.gallery_home_pair
                             HomeStyle.BLUR -> R.string.gallery_home_blur
                             HomeStyle.COLOUR -> R.string.gallery_colour
                             HomeStyle.GRADIENT -> R.string.gallery_home_gradient
+                            HomeStyle.PHOTO -> R.string.gallery_home_photo
                         }), color = Color.White, fontSize = 12.sp,
                             modifier = Modifier.padding(top = 6.dp))
                     }
@@ -799,3 +803,58 @@ private data class ClockEntry(
     val name: String,
     val thumbnail: android.graphics.drawable.Drawable?,
 )
+
+/** What a [HomeStyle] makes of the home screen, for the dialog and the switcher. */
+@Composable
+internal fun HomePreview(
+    style: HomeStyle,
+    wallpaper: GalleryWallpaper,
+    homePhoto: String?,
+    base: Color,
+    currentHome: ImageBitmap?,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier) {
+        when (style) {
+            HomeStyle.KEEP -> {
+                Box(Modifier.fillMaxSize().background(Color(0xFF2C2C2E)))
+                currentHome?.let {
+                    Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                }
+            }
+            HomeStyle.PAIR -> WallpaperImage(wallpaper, Modifier.fillMaxSize())
+            HomeStyle.BLUR -> WallpaperImage(wallpaper, Modifier.fillMaxSize().blur(8.dp))
+            HomeStyle.COLOUR -> Box(Modifier.fillMaxSize().background(base))
+            HomeStyle.GRADIENT -> Box(Modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(
+                    Color(GalleryRenderer.blend(base.toArgb(), 0xFFFFFFFF.toInt(), 0.3f)),
+                    Color(GalleryRenderer.blend(base.toArgb(), 0xFF000000.toInt(), 0.45f))))))
+            HomeStyle.PHOTO ->
+                if (homePhoto != null) {
+                    WallpaperImage(GalleryWallpaper(GalleryWallpaper.Kind.PHOTO,
+                        photos = listOf(homePhoto)), Modifier.fillMaxSize())
+                } else {
+                    Box(Modifier.fillMaxSize().background(Color(0xFF2C2C2E)),
+                        contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.AddPhotoAlternate, null, tint = Color.White,
+                            modifier = Modifier.size(22.dp))
+                    }
+                }
+        }
+    }
+}
+
+/** The home screen's current wallpaper, when it is a still image. */
+@Composable
+internal fun rememberCurrentHome(): ImageBitmap? {
+    val context = LocalContext.current
+    val bitmap by produceState<ImageBitmap?>(null) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                (WallpaperManager.getInstance(context).getDrawable(WallpaperManager.FLAG_SYSTEM)
+                    as? BitmapDrawable)?.bitmap?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+    return bitmap
+}

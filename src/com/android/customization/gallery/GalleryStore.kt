@@ -120,7 +120,8 @@ class GalleryStore private constructor(private val context: Context) {
 
     /** Removes imported photos no saved lock screen uses any more. */
     fun pruneImportedPhotos() {
-        val used = lockScreens.flatMap { it.wallpaper.photos }.toSet() +
+        val used = lockScreens.flatMap { it.wallpaper.photos + listOfNotNull(it.homePhoto) }
+            .toSet() +
             listOfNotNull(liveWallpaper(true), liveWallpaper(false)).flatMap { it.photos }
         File(context.filesDir, "gallery").listFiles()?.forEach {
             if (it.absolutePath !in used) it.delete()

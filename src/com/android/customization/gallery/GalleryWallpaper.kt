@@ -96,9 +96,9 @@ data class GalleryWallpaper(
 
 /**
  * How the home screen relates to the lock screen, like iOS's wallpaper pairs. [KEEP] leaves the
- * home screen's own wallpaper as it is.
+ * home screen's own wallpaper as it is; [PHOTO] uses [LockScreen.homePhoto].
  */
-enum class HomeStyle { KEEP, PAIR, BLUR, COLOUR, GRADIENT }
+enum class HomeStyle { KEEP, PAIR, BLUR, COLOUR, GRADIENT, PHOTO }
 
 /** A saved lock screen: its wallpaper, the home screen that goes with it and its clock. */
 data class LockScreen(
@@ -106,6 +106,8 @@ data class LockScreen(
     val wallpaper: GalleryWallpaper,
     val home: HomeStyle = HomeStyle.PAIR,
     val clock: ClockStyle = ClockStyle(),
+    /** The imported photo for a [HomeStyle.PHOTO] home screen. */
+    val homePhoto: String? = null,
 ) {
     fun toJson(): JSONObject =
         JSONObject()
@@ -113,6 +115,7 @@ data class LockScreen(
             .put("wallpaper", wallpaper.toJson())
             .put("home", home.name)
             .put("clock", clock.toJson())
+            .apply { homePhoto?.let { put("homePhoto", it) } }
 
     companion object {
         fun fromJson(json: JSONObject) =
@@ -123,6 +126,7 @@ data class LockScreen(
                     runCatching { HomeStyle.valueOf(json.optString("home")) }
                         .getOrDefault(HomeStyle.PAIR),
                 clock = json.optJSONObject("clock")?.let(ClockStyle::fromJson) ?: ClockStyle(),
+                homePhoto = json.optString("homePhoto").ifEmpty { null },
             )
     }
 }

@@ -76,8 +76,9 @@
     <string name="gallery_astro_solar">Solar System</string>
     <string name="gallery_astro_mars">Mars</string>
     <string name="gallery_home_title">Home screen</string>
-    <string name="gallery_home_summary">Keep the current home screen, use the same wallpaper as a pair, or choose how the home screen looks.</string>
+    <string name="gallery_home_summary">Keep the current home screen, use the same wallpaper as a pair, pick a photo, or choose how the home screen looks.</string>
     <string name="gallery_home_keep">Current</string>
+    <string name="gallery_home_photo">Photo</string>
     <string name="gallery_home_pair">Pair</string>
     <string name="gallery_home_blur">Blur</string>
     <string name="gallery_home_gradient">Gradient</string>

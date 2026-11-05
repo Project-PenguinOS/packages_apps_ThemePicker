@@ -46,6 +46,7 @@ import com.android.customization.gallery.GalleryApplier
 import com.android.customization.gallery.GalleryStore
 import com.android.customization.gallery.GalleryWallpaper
 import com.android.customization.gallery.GalleryWallpaper.Kind
+import com.android.customization.gallery.HomeStyle
 import com.android.customization.gallery.LockScreen
 import com.android.customization.gallery.SystemClocks
 import com.android.customization.picker.clock.domain.interactor.ClockPickerInteractor
@@ -96,6 +97,7 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         showOverLockScreen(intent)
+        lockOnly = intent.getBooleanExtra(EXTRA_LOCK_ONLY, false)
         val store = GalleryStore.get(this)
         val startInGallery = intent.getBooleanExtra(EXTRA_GALLERY, false)
         val startOnClock = intent.getBooleanExtra(EXTRA_CLOCK, false)
@@ -204,7 +206,15 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
                             zoomIn = current.zoomIn,
                             onReady = ::releaseFirstFrame,
                             onApply = { lockScreen ->
-                                apply(lockScreen)
+                                apply(if (lockOnly) lockScreen.copy(home = HomeStyle.KEEP)
+                                else lockScreen)
+                            },
+                            onHome = if (lockOnly) null else { lockScreen, home, photo ->
+                                val paired = lockScreen.copy(home = home,
+                                    homePhoto = photo ?: lockScreen.homePhoto)
+                                store.save(paired)
+                                version++
+                                apply(paired)
                             },
                             onCustomise = { screen = Screen.Customise(it, isNew = false) },
                             onAdd = { screen = Screen.Gallery },
@@ -262,6 +272,7 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
                             isNew = current.isNew,
                             affordanceInteractor = affordanceInteractor,
                             initialSheet = if (current.openClock) "clock" else null,
+                            lockOnly = lockOnly,
                             onCancel = {
                                 screen = if (current.isNew) Screen.Gallery
                                 else Screen.Switcher(zoomIn = true)
@@ -277,6 +288,8 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
             }
         }
     }
+
+    private var lockOnly by mutableStateOf(false)
 
     private fun newLockScreen(store: GalleryStore, wallpaper: GalleryWallpaper) =
         LockScreen(store.newId(), wallpaper, clock = ClockStyle(preset = 5))
@@ -329,6 +342,7 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        lockOnly = intent.getBooleanExtra(EXTRA_LOCK_ONLY, false)
         showOverLockScreen(intent)
     }
 
@@ -434,6 +448,8 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
             )
         const val EXTRA_GALLERY = "gallery"
         const val EXTRA_CLOCK = "clock"
+        /** From "Lock screen" in Wallpaper and style: the home screen is left as it is. */
+        const val EXTRA_LOCK_ONLY = "lock_only"
         const val EXTRA_OVER_LOCK_SCREEN = "over_lock_screen"
         private const val MAX_SHUFFLE = 30
         private const val FEATURED = 6

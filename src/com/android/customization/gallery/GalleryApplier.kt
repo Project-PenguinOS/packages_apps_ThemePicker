@@ -165,6 +165,10 @@ object GalleryApplier {
             }
             HomeStyle.KEEP, HomeStyle.PAIR ->
                 GalleryRenderer.toBitmap(context, lockScreen.wallpaper, w, h)
+            HomeStyle.PHOTO -> GalleryRenderer.toBitmap(context,
+                lockScreen.homePhoto?.let {
+                    GalleryWallpaper(GalleryWallpaper.Kind.PHOTO, photos = listOf(it))
+                } ?: lockScreen.wallpaper, w, h)
         }
 
     fun blur(source: Bitmap, radius: Float): Bitmap {
