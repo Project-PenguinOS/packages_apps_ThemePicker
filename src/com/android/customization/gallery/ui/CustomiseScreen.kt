@@ -1,5 +1,9 @@
 package com.android.customization.gallery.ui
 
+import android.app.WallpaperManager
+import android.graphics.drawable.BitmapDrawable
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -722,6 +726,14 @@ private fun HomeDialog(
             GalleryRenderer.dominantColor(context, wallpaper)
         }
     }
+    val currentHome by produceState<ImageBitmap?>(null) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                (WallpaperManager.getInstance(context).getDrawable(WallpaperManager.FLAG_SYSTEM)
+                    as? BitmapDrawable)?.bitmap?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.clip(RoundedCornerShape(28.dp)).background(Color(0xFF1C1C1E))
@@ -733,7 +745,10 @@ private fun HomeDialog(
             Text(stringResource(R.string.gallery_home_summary), color = Color(0xB3FFFFFF),
                 fontSize = 14.sp, textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 HomeStyle.entries.forEach { style ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.width(62.dp).clickable { onPick(style) }) {
@@ -742,6 +757,13 @@ private fun HomeDialog(
                         Box(Modifier.fillMaxWidth().aspectRatio(lockScreenAspectRatio()).clip(shape)
                             .border(1.dp, Color(0x33FFFFFF), shape)) {
                             when (style) {
+                                HomeStyle.KEEP -> {
+                                    Box(Modifier.fillMaxSize().background(Color(0xFF2C2C2E)))
+                                    currentHome?.let {
+                                        Image(it, null, Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop)
+                                    }
+                                }
                                 HomeStyle.PAIR -> WallpaperImage(wallpaper, Modifier.fillMaxSize())
                                 HomeStyle.BLUR -> WallpaperImage(wallpaper,
                                     Modifier.fillMaxSize().blur(8.dp))
@@ -755,6 +777,7 @@ private fun HomeDialog(
                             }
                         }
                         Text(stringResource(when (style) {
+                            HomeStyle.KEEP -> R.string.gallery_home_keep
                             HomeStyle.PAIR -> R.string.gallery_home_pair
                             HomeStyle.BLUR -> R.string.gallery_home_blur
                             HomeStyle.COLOUR -> R.string.gallery_colour

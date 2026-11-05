@@ -55,6 +55,22 @@ object GalleryApplier {
                 wm.setWallpaperComponentWithFlags(
                     ComponentName(context, GalleryEffectService::class.java),
                     WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)
+            } else if (lockScreen.home == HomeStyle.KEEP) {
+                // The gallery's live wallpaper shows the lock entry on the home screen when it has
+                // none of its own, so pin that before the lock entry changes.
+                if (store.liveWallpaper(lock = false) == null) {
+                    store.liveWallpaper(lock = true)?.let {
+                        store.setLiveWallpaper(lock = false, wallpaper = it)
+                    }
+                }
+                if (wallpaper.kind.live) {
+                    store.setLiveWallpaper(lock = true, wallpaper = wallpaper)
+                    wm.setWallpaperComponentWithFlags(live, WallpaperManager.FLAG_LOCK)
+                } else {
+                    store.setLiveWallpaper(lock = true, wallpaper = null)
+                    wm.setBitmap(GalleryRenderer.toBitmap(context, wallpaper, w, h), null, true,
+                        WallpaperManager.FLAG_LOCK)
+                }
             } else if (lockScreen.home == HomeStyle.PAIR) {
                 store.setLiveWallpaper(lock = false, wallpaper = null)
                 if (wallpaper.kind.live) {
@@ -147,7 +163,8 @@ object GalleryApplier {
                     }
                 }
             }
-            HomeStyle.PAIR -> GalleryRenderer.toBitmap(context, lockScreen.wallpaper, w, h)
+            HomeStyle.KEEP, HomeStyle.PAIR ->
+                GalleryRenderer.toBitmap(context, lockScreen.wallpaper, w, h)
         }
 
     fun blur(source: Bitmap, radius: Float): Bitmap {
