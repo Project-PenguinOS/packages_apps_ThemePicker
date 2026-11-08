@@ -286,7 +286,8 @@ fun CustomClockLayer(
                 .size(with(density) { (frame.width * k).toDp() },
                     with(density) { (bitmap.height * k).toDp() })
                 .graphicsLayer {
-                    transformOrigin = TransformOrigin(0.5f, 0f)
+                    transformOrigin = TransformOrigin(
+                        if (CustomClocks.isStartAligned(style.face)) 0f else 0.5f, 0f)
                     scaleX = frame.scale
                     scaleY = frame.scale
                     alpha = frame.alpha

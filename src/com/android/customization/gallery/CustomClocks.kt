@@ -50,6 +50,8 @@ object CustomClocks {
     private const val KEY_WEATHER = "custom_clock_weather"
     private const val COLOR_MODE_ACCENT = "accent"
     private const val PREVIEW_SHADOW = 0x59000000
+    private const val PIVOT_START_TAG = "pivot_start"
+    private val startAligned = java.util.Collections.synchronizedSet(mutableSetOf<Int>())
     private const val ACTION_RESTART = "com.android.systemui.action.RESTART_FOR_CLOCK_STYLE"
 
     /** Styles whose colours SystemUI never changes. */
@@ -216,6 +218,8 @@ object CustomClocks {
             val inflater = LayoutInflater.from(cat.inflateContext).cloneInContext(
                 cat.inflateContext).apply { factory2 = SystemUiViews(cat.systemUi?.classLoader) }
             val view = inflater.inflate(cat.layouts[style], null)
+            if (view.tag == PIVOT_START_TAG) startAligned += style
+            fitToScreen(context, cat, view, width)
             prepare(view, if (shade != null) Color.WHITE
                 else if (isColourable(style)) color ?: Color.WHITE else null)
             view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
@@ -233,6 +237,25 @@ object CustomClocks {
             Log.w(TAG, "Could not draw clock style $style", e)
             null
         }
+    }
+
+    /** Whether the style grows from its start edge, as SystemUI scales it. */
+    fun isStartAligned(style: Int) = style in startAligned
+
+    /**
+     * Styles that size themselves to the window do it with SystemUI's code, scaled down to the
+     * [width] the preview is drawn at.
+     */
+    private fun fitToScreen(context: Context, cat: Catalogue, view: View, width: Int) {
+        val loader = cat.systemUi?.classLoader ?: return
+        val metrics = context.resources.displayMetrics
+        val k = width / frame(context).width.toFloat()
+        runCatching {
+            loader.loadClass("$SYSTEMUI.clocks.TallStackClock")
+                .getMethod("fit", View::class.java, Float::class.javaPrimitiveType,
+                    Float::class.javaPrimitiveType)
+                .invoke(null, view, metrics.widthPixels * k, metrics.heightPixels * k)
+        }.onFailure { Log.w(TAG, "Could not fit the clock to the screen", it) }
     }
 
     /** Paints the gradient over the white clock the way SystemUI lays it over the clock view. */
