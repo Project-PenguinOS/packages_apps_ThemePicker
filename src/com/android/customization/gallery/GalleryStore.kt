@@ -90,6 +90,11 @@ class GalleryStore private constructor(private val context: Context) {
         }.commit()
     }
 
+    /** The lock wallpaper the gallery last set or adopted; any other one was set elsewhere. */
+    var lockWallpaperId: Int
+        get() = prefs.getInt(KEY_LOCK_WALLPAPER_ID, -1)
+        set(value) = prefs.edit().putInt(KEY_LOCK_WALLPAPER_ID, value).apply()
+
     var shuffleIndex: Int
         get() = prefs.getInt(KEY_SHUFFLE_INDEX, 0)
         set(value) = prefs.edit().putInt(KEY_SHUFFLE_INDEX, value).apply()
@@ -136,6 +141,7 @@ class GalleryStore private constructor(private val context: Context) {
         private const val KEY_LIVE_HOME = "live_home"
         private const val KEY_SHUFFLE_INDEX = "shuffle_index"
         private const val KEY_SHUFFLE_AT = "shuffle_at"
+        private const val KEY_LOCK_WALLPAPER_ID = "lock_wallpaper_id"
 
         const val PACK_EMOJI = "emoji"
         const val PACK_KALEIDOSCOPE = "kaleidoscope"

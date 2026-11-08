@@ -421,24 +421,35 @@ class LockScreenGalleryActivity : Hilt_LockScreenGalleryActivity() {
     }
 
     /**
-     * The first time, the wallpaper already on the lock screen becomes the first saved lock
-     * screen, so the switcher never starts empty.
+     * The wallpaper on the lock screen becomes a saved lock screen the first time, and again
+     * whenever it was changed outside the gallery (Wallpaper and style, another app), so the
+     * gallery never shows or re-applies an old one.
      */
     private fun adoptCurrentWallpaper(store: GalleryStore) {
-        if (store.lockScreens.isNotEmpty()) return
+        val id = GalleryApplier.lockWallpaperId(this)
+        if (store.lockScreens.isNotEmpty() && id == store.lockWallpaperId) return
         val wm = WallpaperManager.getInstance(this)
+        val sharesHome = wm.getWallpaperId(WallpaperManager.FLAG_LOCK) < 0
+        val info =
+            if (sharesHome) wm.wallpaperInfo else wm.getWallpaperInfo(WallpaperManager.FLAG_LOCK)
+        // A live wallpaper is not kept as a photo; the gallery's own ones are saved already.
+        if (store.lockScreens.isNotEmpty() && info != null) {
+            store.lockWallpaperId = id
+            return
+        }
         val drawable = runCatching { wm.getDrawable(WallpaperManager.FLAG_LOCK) }.getOrNull()
             ?: runCatching { wm.builtInDrawable }.getOrNull() ?: return
         val (w, h) = GalleryApplier.screenSize(this)
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         drawable.setBounds(0, 0, w, h)
         drawable.draw(Canvas(bitmap))
-        val file = File(File(filesDir, "gallery").apply { mkdirs() }, "current.jpg")
+        val file = File(File(filesDir, "gallery").apply { mkdirs() }, "${store.newId()}.jpg")
         FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it) }
         val lockScreen = LockScreen(store.newId(),
             GalleryWallpaper(Kind.PHOTO, photos = listOf(file.absolutePath)))
         store.save(lockScreen)
         store.setCurrent(lockScreen.id)
+        store.lockWallpaperId = id
     }
 
     companion object {

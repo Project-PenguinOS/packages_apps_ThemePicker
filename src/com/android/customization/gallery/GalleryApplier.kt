@@ -102,7 +102,15 @@ object GalleryApplier {
         }
         applyDepth(context, !wallpaper.kind.live && wallpaper.depth, extract = wallpaper.effect == 0)
         store.setCurrent(lockScreen.id)
+        store.lockWallpaperId = lockWallpaperId(context)
         store.pruneImportedPhotos()
+    }
+
+    /** The wallpaper the lock screen shows: its own, or the home one it shares. */
+    fun lockWallpaperId(context: Context): Int {
+        val wm = WallpaperManager.getInstance(context)
+        val lock = wm.getWallpaperId(WallpaperManager.FLAG_LOCK)
+        return if (lock >= 0) lock else wm.getWallpaperId(WallpaperManager.FLAG_SYSTEM)
     }
 
     /** SystemUI's depth wallpaper lifts the photo's subject over the clock, like iOS's 3D. */
